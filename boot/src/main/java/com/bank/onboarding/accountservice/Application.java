@@ -11,7 +11,7 @@ import org.springframework.data.mongodb.repository.config.EnableMongoRepositorie
 import java.util.Arrays;
 
 @SpringBootApplication(scanBasePackages = "com.bank.onboarding")
-@EnableMongoRepositories(basePackages = "com.bank.onboarding.persistence.repositories")
+@EnableMongoRepositories(basePackages = "com.bank.onboarding.commonslib.persistence.repositories")
 @Slf4j
 public class Application {
 
