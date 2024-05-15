@@ -5,7 +5,7 @@ import com.bank.onboarding.accountservice.services.AccountService;
 import com.bank.onboarding.commonslib.persistence.exceptions.OnboardingException;
 import com.bank.onboarding.commonslib.persistence.models.Account;
 import com.bank.onboarding.commonslib.persistence.models.Card;
-import com.bank.onboarding.commonslib.persistence.services.CardService;
+import com.bank.onboarding.commonslib.persistence.services.CardRepoService;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountCardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountNetbancoDTO;
@@ -32,7 +32,7 @@ import java.util.List;
 public class AccountController {
 
     private final AccountService accountService;
-    private final CardService cardService;
+    private final CardRepoService cardRepoService;
 
     private static final String ACCOUNT_ID_PATH_PARAM = "/{accountNumber}";
 
@@ -43,7 +43,7 @@ public class AccountController {
 
     @GetMapping("/test/cards")
     public List<Card> getCards() {
-        return cardService.getAllCards();
+        return cardRepoService.getAllCards();
     }
 
     @PatchMapping(ACCOUNT_ID_PATH_PARAM)
