@@ -84,11 +84,11 @@ public class AccountController {
         }
     }
 
-    @DeleteMapping(ACCOUNT_ID_PATH_PARAM + "/card/{cardId}")
+    @DeleteMapping(ACCOUNT_ID_PATH_PARAM + "/card/{cardNumber}")
     public ResponseEntity<AccountDTO> deleteAccountCard(@PathVariable("accountNumber") String accountNumber,
-                                                        @PathVariable("cardId") String cardId){
+                                                        @PathVariable("cardNumber") String cardNumber){
         try {
-            final AccountDTO accountDTO = accountService.deleteAccountCard(accountNumber, cardId);
+            final AccountDTO accountDTO = accountService.deleteAccountCard(accountNumber, cardNumber);
             return new ResponseEntity<>(accountDTO, HttpStatus.OK);
         }
         catch( Exception e ) {
