@@ -10,6 +10,7 @@ import com.bank.onboarding.commonslib.web.dtos.account.AccountCardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountNetbancoDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountTypeRequestDTO;
+import com.bank.onboarding.commonslib.web.dtos.account.CardDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -59,11 +60,11 @@ public class AccountController {
     }
 
     @PutMapping(ACCOUNT_ID_PATH_PARAM + "/card")
-    public ResponseEntity<AccountDTO> addAccountCard(@PathVariable("accountNumber") String accountNumber,
-                                                     @RequestBody AccountCardDTO accountCardDTO){
+    public ResponseEntity<CardDTO> addAccountCard(@PathVariable("accountNumber") String accountNumber,
+                                                  @RequestBody AccountCardDTO accountCardDTO){
         try {
-            final AccountDTO accountDTO = accountService.addAccountCard(accountNumber, accountCardDTO);
-            return new ResponseEntity<>(accountDTO, HttpStatus.CREATED);
+            final CardDTO cardDTO = accountService.addAccountCard(accountNumber, accountCardDTO);
+            return new ResponseEntity<>(cardDTO, HttpStatus.CREATED);
         }
         catch( Exception e ) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());

@@ -4,12 +4,17 @@ import com.bank.onboarding.accountservice.services.AccountService;
 import com.bank.onboarding.commonslib.persistence.enums.CustomerType;
 import com.bank.onboarding.commonslib.persistence.exceptions.OnboardingException;
 import com.bank.onboarding.commonslib.persistence.models.Account;
+import com.bank.onboarding.commonslib.persistence.models.Card;
 import com.bank.onboarding.commonslib.persistence.repositories.AccountRepository;
+import com.bank.onboarding.commonslib.persistence.repositories.CustomerRefRepository;
 import com.bank.onboarding.commonslib.utils.OnboardingUtils;
+import com.bank.onboarding.commonslib.utils.mappers.AccountMapper;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountCardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountNetbancoDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountTypeRequestDTO;
+import com.bank.onboarding.commonslib.web.dtos.account.CardDTO;
+import com.github.javafaker.Faker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -17,9 +22,11 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.ACCOUNT_TYPES;
+import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.CARD_TYPES;
 
 @Slf4j
 @Service
@@ -27,7 +34,9 @@ import static com.bank.onboarding.commonslib.persistence.constants.OnboardingCon
 public class AccountServiceImpl implements AccountService {
 
     private final AccountRepository accountRepository;
+    private final CustomerRefRepository customerRefRepository;
     private final OnboardingUtils onboardingUtils;
+    private final Faker faker = new Faker(new Locale("pt"));
 
     @Override
     public List<Account> getAllAccounts() {
@@ -61,8 +70,29 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public AccountDTO addAccountCard(String accountNumber, AccountCardDTO accountTypeDTO) {
-        return null;
+    public CardDTO addAccountCard(String accountNumber, AccountCardDTO accountCardDTO) {
+        if(!CARD_TYPES.contains(Optional.ofNullable(accountCardDTO.getCardType()).orElse("")))
+            throw new OnboardingException("Não é possível adicionar cartão de conta. O cartão que está a tentar introduzir é inválido");
+
+        Account account = onboardingUtils.findAccountDB(accountNumber);
+        Card newCard = Card.builder()
+                .annualFee(Double.valueOf(faker.commerce().price(5.00,20.00)))
+                .cvc((int)faker.number().randomNumber(3, false))
+                .number(faker.numerify("####-####-####-####"))
+                .type(accountCardDTO.getCardType())
+                .accountId(account.getId()).build();
+
+        Optional.ofNullable(accountCardDTO.getCustomerNumber()).orElseThrow(() ->
+                new OnboardingException("A lista de clientes para se adicionar o cartão está vazia")).forEach(customerNumber -> {
+                    if(customerRefRepository.findByCustomerNumber(customerNumber).getId() != null) {
+                        newCard.setCustomerId(customerNumber);
+                        onboardingUtils.saveCardDB(newCard);
+                    }else{
+                        throw new OnboardingException("Não foi possível adicionar o cartão ao cliente com o número " + customerNumber);
+                    }
+        });
+
+        return AccountMapper.INSTANCE.toCardDTO(newCard);
     }
 
     @Override
