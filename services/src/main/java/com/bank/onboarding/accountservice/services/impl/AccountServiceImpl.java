@@ -60,14 +60,16 @@ public class AccountServiceImpl implements AccountService {
 
         if(CustomerType.EMPRESA.name().equals(Optional.ofNullable(accountTypeRequestDTO.getCustomerType()).orElse("")) &&
                 onboardingUtils.isEmpresaAccountType(accountType)) {
-            accountDTOReturned = AccountMapper.INSTANCE.toAccountDTO(accountRepoService.saveAccountTypeDB(account, accountType));
+            account.setType(accountType);
+            accountDTOReturned = AccountMapper.INSTANCE.toAccountDTO(accountRepoService.saveAccountDB(account));
         }else if(CustomerType.PARTICULAR.name().equals(Optional.ofNullable(accountTypeRequestDTO.getCustomerType()).orElse(""))){
             int age = onboardingUtils.calculateAge(Optional.ofNullable(accountTypeRequestDTO.getCustomerBirthDate()).orElse(LocalDateTime.now()));
             String customerType = Optional.ofNullable(accountTypeRequestDTO.getCustomerType()).orElse("");
 
             if(onboardingUtils.isMajorAndUniversityStudentAndAccountTypeIsUNIV(age, accountTypeRequestDTO.getCustomerProfession(), customerType) ||
                     onboardingUtils.isMinorAndHasProgenitorOrTutorAndAccountTypeIsJOV(age, customerType) || onboardingUtils.isParticularAccountType(accountType)){
-                accountDTOReturned = AccountMapper.INSTANCE.toAccountDTO(accountRepoService.saveAccountTypeDB(account, accountType));
+                account.setType(accountType);
+                accountDTOReturned = AccountMapper.INSTANCE.toAccountDTO(accountRepoService.saveAccountDB(account));
             }
         }
 
@@ -117,6 +119,10 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public AccountDTO putAccountNetbanco(String accountNumber, AccountNetbancoDTO accountNetbancoDTO) {
-        return null;
+        Account account = accountRepoService.findAccountDB(accountNumber);
+        account.setOnlineBankingIndicator(accountNetbancoDTO.isWantsNetbanco());
+        account = accountRepoService.saveAccountDB(account);
+
+        return AccountMapper.INSTANCE.toAccountDTO(account);
     }
 }
