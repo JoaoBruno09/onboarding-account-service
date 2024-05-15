@@ -4,6 +4,7 @@ import com.bank.onboarding.commonslib.persistence.exceptions.OnboardingException
 import com.bank.onboarding.commonslib.persistence.models.Account;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountCardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountDTO;
+import com.bank.onboarding.commonslib.web.dtos.account.AccountDeleteCardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountNetbancoDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountTypeRequestDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.CardDTO;
@@ -15,6 +16,6 @@ public interface AccountService {
     AccountDTO patchAccountType(String accountNumber, AccountTypeRequestDTO accountTypeRequestDTO) throws OnboardingException;
     CardDTO addAccountCard(String accountNumber, AccountCardDTO accountTypeDTO);
     AccountDTO updateAccountCard(String accountNumber, String cardId, AccountCardDTO accountTypeDTO);
-    AccountDTO deleteAccountCard(String accountNumber, String cardId);
+    AccountDTO deleteAccountCard(String accountNumber, String cardId, AccountDeleteCardDTO accountDeleteCardDTO);
     AccountDTO putAccountNetbanco(String accountNumber, AccountNetbancoDTO accountNetbancoDTO);
 }

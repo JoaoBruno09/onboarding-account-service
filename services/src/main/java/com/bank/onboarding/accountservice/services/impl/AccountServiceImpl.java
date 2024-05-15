@@ -12,6 +12,7 @@ import com.bank.onboarding.commonslib.utils.OnboardingUtils;
 import com.bank.onboarding.commonslib.utils.mappers.AccountMapper;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountCardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountDTO;
+import com.bank.onboarding.commonslib.web.dtos.account.AccountDeleteCardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountNetbancoDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountTypeRequestDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.CardDTO;
@@ -29,6 +30,7 @@ import java.util.Optional;
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.ACCOUNT_TYPES;
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.CARD_TYPES;
 import static com.bank.onboarding.commonslib.persistence.enums.AccountPhase.INTYPE;
+import static com.bank.onboarding.commonslib.persistence.enums.AccountPhase.RELCARD;
 
 @Slf4j
 @Service
@@ -49,7 +51,7 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public AccountDTO patchAccountType(String accountNumber, AccountTypeRequestDTO accountTypeRequestDTO) throws OnboardingException {
-        if(Boolean.TRUE.equals(Optional.ofNullable(accountTypeRequestDTO.getAccountActive()).orElse(Boolean.TRUE)) ||
+        if(Boolean.TRUE.equals(accountTypeRequestDTO.isAccountActive()) ||
                 !ACCOUNT_TYPES.contains(Optional.ofNullable(accountTypeRequestDTO.getAccountType()).orElse("")) ||
                 !Objects.equals(INTYPE.getValue(), Optional.ofNullable(accountTypeRequestDTO.getAccountPhase()).orElse(0)))
             throw new OnboardingException("Não é possível adicionar/atualizar/remover tipo de conta. A conta está ativa ou o tipo de conta ou a fase introduzida são inválidos");
@@ -109,7 +111,10 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public AccountDTO deleteAccountCard(String accountNumber, String cardNumber) {
+    public AccountDTO deleteAccountCard(String accountNumber, String cardNumber, AccountDeleteCardDTO accountDeleteCardDTO) {
+        if(!Objects.equals(RELCARD.getValue(), accountDeleteCardDTO.getAccountPhase()))
+            throw new OnboardingException("Não é possível eliminar cartão. A fase introduzida não é válida");
+
         Card card = cardRepoService.findCardDB(cardNumber);
         cardRepoService.deleteCardDB(card.getId());
         Account account = accountRepoService.findAccountDB(accountNumber);
@@ -119,6 +124,9 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public AccountDTO putAccountNetbanco(String accountNumber, AccountNetbancoDTO accountNetbancoDTO) {
+        if(!Objects.equals(RELCARD.getValue(), accountNetbancoDTO.getAccountPhase()))
+            throw new OnboardingException("Não é possível adicionar/remover netbanco. A fase introduzida não é válida");
+
         Account account = accountRepoService.findAccountDB(accountNumber);
         account.setOnlineBankingIndicator(accountNetbancoDTO.isWantsNetbanco());
         account = accountRepoService.saveAccountDB(account);

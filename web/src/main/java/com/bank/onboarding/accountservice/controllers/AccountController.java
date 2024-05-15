@@ -8,6 +8,7 @@ import com.bank.onboarding.commonslib.persistence.models.Card;
 import com.bank.onboarding.commonslib.persistence.services.CardRepoService;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountCardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountDTO;
+import com.bank.onboarding.commonslib.web.dtos.account.AccountDeleteCardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountNetbancoDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountTypeRequestDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.CardDTO;
@@ -86,9 +87,10 @@ public class AccountController {
 
     @DeleteMapping(ACCOUNT_ID_PATH_PARAM + "/card/{cardNumber}")
     public ResponseEntity<AccountDTO> deleteAccountCard(@PathVariable("accountNumber") String accountNumber,
-                                                        @PathVariable("cardNumber") String cardNumber){
+                                                        @PathVariable("cardNumber") String cardNumber,
+                                                        @RequestBody AccountDeleteCardDTO accountDeleteCardDTO){
         try {
-            final AccountDTO accountDTO = accountService.deleteAccountCard(accountNumber, cardNumber);
+            final AccountDTO accountDTO = accountService.deleteAccountCard(accountNumber, cardNumber, accountDeleteCardDTO);
             return new ResponseEntity<>(accountDTO, HttpStatus.OK);
         }
         catch( Exception e ) {
