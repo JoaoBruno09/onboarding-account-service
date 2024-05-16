@@ -14,8 +14,7 @@ import java.util.List;
 public interface AccountService {
     List<Account> getAllAccounts();
     AccountDTO patchAccountType(String accountNumber, AccountTypeRequestDTO accountTypeRequestDTO) throws OnboardingException;
-    CardDTO addAccountCard(String accountNumber, AccountCardDTO accountTypeDTO);
-    AccountDTO updateAccountCard(String accountNumber, String cardId, AccountCardDTO accountTypeDTO);
+    CardDTO putAccountCard(String accountNumber, AccountCardDTO accountTypeDTO);
     AccountDTO deleteAccountCard(String accountNumber, String cardId, AccountDeleteCardDTO accountDeleteCardDTO);
     AccountDTO putAccountNetbanco(String accountNumber, AccountNetbancoDTO accountNetbancoDTO);
 }

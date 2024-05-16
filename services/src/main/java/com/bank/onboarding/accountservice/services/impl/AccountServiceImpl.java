@@ -2,6 +2,7 @@ package com.bank.onboarding.accountservice.services.impl;
 
 import com.bank.onboarding.accountservice.services.AccountService;
 import com.bank.onboarding.commonslib.persistence.enums.CustomerType;
+import com.bank.onboarding.commonslib.persistence.enums.OperationType;
 import com.bank.onboarding.commonslib.persistence.exceptions.OnboardingException;
 import com.bank.onboarding.commonslib.persistence.models.Account;
 import com.bank.onboarding.commonslib.persistence.models.Card;
@@ -24,13 +25,10 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.Optional;
 
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.ACCOUNT_TYPES;
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.CARD_TYPES;
-import static com.bank.onboarding.commonslib.persistence.enums.AccountPhase.INTYPE;
-import static com.bank.onboarding.commonslib.persistence.enums.AccountPhase.RELCARD;
 
 @Slf4j
 @Service
@@ -52,9 +50,10 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public AccountDTO patchAccountType(String accountNumber, AccountTypeRequestDTO accountTypeRequestDTO) throws OnboardingException {
         if(Boolean.TRUE.equals(accountTypeRequestDTO.isAccountActive()) ||
-                !ACCOUNT_TYPES.contains(Optional.ofNullable(accountTypeRequestDTO.getAccountType()).orElse("")) ||
-                !Objects.equals(INTYPE.getValue(), Optional.ofNullable(accountTypeRequestDTO.getAccountPhase()).orElse(0)))
-            throw new OnboardingException("Não é possível adicionar/atualizar/remover tipo de conta. A conta está ativa ou o tipo de conta ou a fase introduzida são inválidos");
+                !ACCOUNT_TYPES.contains(Optional.ofNullable(accountTypeRequestDTO.getAccountType()).orElse("")))
+            throw new OnboardingException("Não é possível adicionar/atualizar/remover tipo de conta. A conta está ativa ou o tipo de conta são inválidos");
+
+        onboardingUtils.isValidPhase(accountTypeRequestDTO.getAccountPhase(), OperationType.TYPE_ACCOUNT);
 
         Account account = accountRepoService.findAccountDB(accountNumber);
         AccountDTO accountDTOReturned = null;
@@ -79,12 +78,13 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public CardDTO addAccountCard(String accountNumber, AccountCardDTO accountCardDTO) {
-        if(!CARD_TYPES.contains(Optional.ofNullable(accountCardDTO.getCardType()).orElse("")) ||
-                !Objects.equals(INTYPE.getValue(), Optional.ofNullable(accountCardDTO.getAccountPhase()).orElse(0)))
+    public CardDTO putAccountCard(String accountNumber, AccountCardDTO accountCardDTO) {
+        if(!CARD_TYPES.contains(Optional.ofNullable(accountCardDTO.getCardType()).orElse("")))
             throw new OnboardingException("Não é possível adicionar cartão de conta. O cartão que está a tentar introduzir ou a fase introduzida são inválidos");
 
+        onboardingUtils.isValidPhase(accountCardDTO.getAccountPhase(), OperationType.CARD_ACCOUNT);
         Account account = accountRepoService.findAccountDB(accountNumber);
+
         Card newCard = Card.builder()
                 .annualFee(Double.valueOf(faker.commerce().price(5.00,20.00)))
                 .cvc((int)faker.number().randomNumber(3, false))
@@ -94,7 +94,9 @@ public class AccountServiceImpl implements AccountService {
 
         Optional.ofNullable(accountCardDTO.getCustomerNumber()).orElseThrow(() ->
                 new OnboardingException("A lista de clientes para se adicionar o cartão está vazia")).forEach(customerNumber -> {
-                    if(customerRefRepoService.findCustomerDB(customerNumber).getId() != null) {
+                    String customerId = customerRefRepoService.findCustomerDB(customerNumber).getId();
+                    if( customerId != null) {
+                        cardRepoService.findAndDeleteCardDB(customerId, account.getId());
                         newCard.setCustomerId(customerNumber);
                         cardRepoService.saveCardDB(newCard);
                     }else{
@@ -106,15 +108,8 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public AccountDTO updateAccountCard(String accountNumber, String cardId, AccountCardDTO accountTypeDTO) {
-        return null;
-    }
-
-    @Override
     public AccountDTO deleteAccountCard(String accountNumber, String cardNumber, AccountDeleteCardDTO accountDeleteCardDTO) {
-        if(!Objects.equals(RELCARD.getValue(), accountDeleteCardDTO.getAccountPhase()))
-            throw new OnboardingException("Não é possível eliminar cartão. A fase introduzida não é válida");
-
+        onboardingUtils.isValidPhase(accountDeleteCardDTO.getAccountPhase(), OperationType.CARD_ACCOUNT);
         Card card = cardRepoService.findCardDB(cardNumber);
         cardRepoService.deleteCardDB(card.getId());
         Account account = accountRepoService.findAccountDB(accountNumber);
@@ -124,9 +119,7 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public AccountDTO putAccountNetbanco(String accountNumber, AccountNetbancoDTO accountNetbancoDTO) {
-        if(!Objects.equals(RELCARD.getValue(), accountNetbancoDTO.getAccountPhase()))
-            throw new OnboardingException("Não é possível adicionar/remover netbanco. A fase introduzida não é válida");
-
+        onboardingUtils.isValidPhase(accountNetbancoDTO.getAccountPhase(), OperationType.NETBANCO_ACCOUNT);
         Account account = accountRepoService.findAccountDB(accountNumber);
         account.setOnlineBankingIndicator(accountNetbancoDTO.isWantsNetbanco());
         account = accountRepoService.saveAccountDB(account);

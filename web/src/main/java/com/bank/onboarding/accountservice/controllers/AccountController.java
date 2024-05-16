@@ -61,24 +61,11 @@ public class AccountController {
     }
 
     @PutMapping(ACCOUNT_ID_PATH_PARAM + "/card")
-    public ResponseEntity<CardDTO> addAccountCard(@PathVariable("accountNumber") String accountNumber,
+    public ResponseEntity<CardDTO> putAccountCard(@PathVariable("accountNumber") String accountNumber,
                                                   @RequestBody AccountCardDTO accountCardDTO){
         try {
-            final CardDTO cardDTO = accountService.addAccountCard(accountNumber, accountCardDTO);
+            final CardDTO cardDTO = accountService.putAccountCard(accountNumber, accountCardDTO);
             return new ResponseEntity<>(cardDTO, HttpStatus.CREATED);
-        }
-        catch( Exception e ) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
-        }
-    }
-
-    @PutMapping(ACCOUNT_ID_PATH_PARAM + "/card/{cardId}")
-    public ResponseEntity<AccountDTO> updateAccountCard(@PathVariable("accountNumber") String accountNumber,
-                                                        @PathVariable("cardId") String cardId,
-                                                        @RequestBody AccountCardDTO accountCardDTO){
-        try {
-            final AccountDTO accountDTO = accountService.updateAccountCard(accountNumber, cardId, accountCardDTO);
-            return new ResponseEntity<>(accountDTO, HttpStatus.OK);
         }
         catch( Exception e ) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
