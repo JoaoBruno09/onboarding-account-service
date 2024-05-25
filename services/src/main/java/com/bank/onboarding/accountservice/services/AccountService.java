@@ -8,11 +8,13 @@ import com.bank.onboarding.commonslib.web.dtos.account.AccountDeleteCardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountNetbancoDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountTypeRequestDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.CardDTO;
+import com.bank.onboarding.commonslib.web.dtos.account.CreateAccountRequestDTO;
 
 import java.util.List;
 
 public interface AccountService {
     List<Account> getAllAccounts();
+    AccountDTO createAccount(CreateAccountRequestDTO createAccountRequestDTO);
     AccountDTO patchAccountType(String accountNumber, AccountTypeRequestDTO accountTypeRequestDTO) throws OnboardingException;
     CardDTO putAccountCard(String accountNumber, AccountCardDTO accountTypeDTO);
     AccountDTO deleteAccountCard(String accountNumber, String cardId, AccountDeleteCardDTO accountDeleteCardDTO);

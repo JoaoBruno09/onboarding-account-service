@@ -10,25 +10,29 @@ import com.bank.onboarding.commonslib.persistence.services.AccountRepoService;
 import com.bank.onboarding.commonslib.persistence.services.CardRepoService;
 import com.bank.onboarding.commonslib.persistence.services.CustomerRefRepoService;
 import com.bank.onboarding.commonslib.utils.OnboardingUtils;
+import com.bank.onboarding.commonslib.utils.kafka.CreateAccountEvent;
+import com.bank.onboarding.commonslib.utils.kafka.KafkaProducer;
 import com.bank.onboarding.commonslib.utils.mappers.AccountMapper;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountCardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountDeleteCardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountNetbancoDTO;
+import com.bank.onboarding.commonslib.web.dtos.account.AccountRefDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountTypeRequestDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.CardDTO;
-import com.github.javafaker.Faker;
+import com.bank.onboarding.commonslib.web.dtos.account.CreateAccountRequestDTO;
+import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.ACCOUNT_TYPES;
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.CARD_TYPES;
+import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.faker;
 
 @Slf4j
 @Service
@@ -39,12 +43,47 @@ public class AccountServiceImpl implements AccountService {
     private final OnboardingUtils onboardingUtils;
     private final AccountRepoService accountRepoService;
     private final CardRepoService cardRepoService;
-
-    private final Faker faker = new Faker(new Locale("pt"));
+    private final KafkaProducer kafkaProducer;
 
     @Override
     public List<Account> getAllAccounts() {
         return accountRepoService.findAccountsDB();
+    }
+
+    @Override
+    public AccountDTO createAccount(CreateAccountRequestDTO createAccountRequestDTO) {
+
+        String accountManager = Optional.ofNullable(createAccountRequestDTO.getAccountManager()).orElse("");
+        String accountType = Optional.ofNullable(createAccountRequestDTO.getAccountType()).orElse("");
+        if(StringUtils.isBlank(accountManager) || !ACCOUNT_TYPES.contains(accountType))
+            throw new OnboardingException("Não foi inserido um gestor de conta válido, pelo que não é possível criar a conta");
+
+        String iban = faker.finance().iban("PT");
+        String ibanReplaced = iban.trim().replaceAll(" ", "").substring(iban.length()-23);
+
+         Account account = accountRepoService.saveAccountDB(Account.builder()
+                .accountManager(accountManager)
+                .active(Boolean.FALSE)
+                .creationTime(LocalDateTime.now())
+                .currencyCode("EUR")
+                .iban(iban)
+                .lastUpdateTime(LocalDateTime.now())
+                .number(ibanReplaced.substring(0, iban.length()-1))
+                .onlineBankingIndicator(Boolean.FALSE)
+                .phase(1)
+                .type(accountType)
+                .build());
+
+        kafkaProducer.sendEvent("${spring.kafka.producer.customer.topic-name}", CreateAccountEvent.builder()
+                .createAccountRequestDTO(createAccountRequestDTO)
+                .accountRefDTO(AccountRefDTO.builder()
+                        .accountId(account.getId())
+                        .accountNumber(account.getNumber())
+                        .build())
+                .build());
+
+
+        return AccountMapper.INSTANCE.toAccountDTO(account);
     }
 
     @Override
@@ -62,6 +101,7 @@ public class AccountServiceImpl implements AccountService {
         if(CustomerType.EMPRESA.name().equals(Optional.ofNullable(accountTypeRequestDTO.getCustomerType()).orElse("")) &&
                 onboardingUtils.isEmpresaAccountType(accountType)) {
             account.setType(accountType);
+            account.setLastUpdateTime(LocalDateTime.now());
             accountDTOReturned = AccountMapper.INSTANCE.toAccountDTO(accountRepoService.saveAccountDB(account));
         }else if(CustomerType.PARTICULAR.name().equals(Optional.ofNullable(accountTypeRequestDTO.getCustomerType()).orElse(""))){
             int age = onboardingUtils.calculateAge(Optional.ofNullable(accountTypeRequestDTO.getCustomerBirthDate()).orElse(LocalDateTime.now()));
@@ -70,6 +110,7 @@ public class AccountServiceImpl implements AccountService {
             if(onboardingUtils.isMajorAndUniversityStudentAndAccountTypeIsUNIV(age, accountTypeRequestDTO.getCustomerProfession(), customerType) ||
                     onboardingUtils.isMinorAndHasProgenitorOrTutorAndAccountTypeIsJOV(age, customerType) || onboardingUtils.isParticularAccountType(accountType)){
                 account.setType(accountType);
+                account.setLastUpdateTime(LocalDateTime.now());
                 accountDTOReturned = AccountMapper.INSTANCE.toAccountDTO(accountRepoService.saveAccountDB(account));
             }
         }
@@ -122,6 +163,7 @@ public class AccountServiceImpl implements AccountService {
         onboardingUtils.isValidPhase(accountNetbancoDTO.getAccountPhase(), OperationType.NETBANCO_ACCOUNT);
         Account account = accountRepoService.findAccountDB(accountNumber);
         account.setOnlineBankingIndicator(accountNetbancoDTO.isWantsNetbanco());
+        account.setLastUpdateTime(LocalDateTime.now());
         account = accountRepoService.saveAccountDB(account);
 
         return AccountMapper.INSTANCE.toAccountDTO(account);
