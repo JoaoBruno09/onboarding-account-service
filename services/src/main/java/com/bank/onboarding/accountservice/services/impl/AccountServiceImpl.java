@@ -24,6 +24,7 @@ import com.bank.onboarding.commonslib.web.dtos.account.CreateAccountRequestDTO;
 import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -45,6 +46,9 @@ public class AccountServiceImpl implements AccountService {
     private final CardRepoService cardRepoService;
     private final KafkaProducer kafkaProducer;
 
+    @Value("${spring.kafka.producer.customer.topic-name}")
+    private String customerTopicName;
+
     @Override
     public List<Account> getAllAccounts() {
         return accountRepoService.findAccountsDB();
@@ -59,7 +63,6 @@ public class AccountServiceImpl implements AccountService {
             throw new OnboardingException("Não foi inserido um gestor de conta válido, pelo que não é possível criar a conta");
 
         String iban = faker.finance().iban("PT");
-        String ibanReplaced = iban.trim().replaceAll(" ", "").substring(iban.length()-23);
 
          Account account = accountRepoService.saveAccountDB(Account.builder()
                 .accountManager(accountManager)
@@ -68,13 +71,13 @@ public class AccountServiceImpl implements AccountService {
                 .currencyCode("EUR")
                 .iban(iban)
                 .lastUpdateTime(LocalDateTime.now())
-                .number(ibanReplaced.substring(0, iban.length()-1))
+                .number(iban.trim().substring(iban.length()-19))
                 .onlineBankingIndicator(Boolean.FALSE)
                 .phase(1)
                 .type(accountType)
                 .build());
 
-        kafkaProducer.sendEvent("${spring.kafka.producer.customer.topic-name}", CreateAccountEvent.builder()
+        kafkaProducer.sendEvent(customerTopicName, CreateAccountEvent.builder()
                 .createAccountRequestDTO(createAccountRequestDTO)
                 .accountRefDTO(AccountRefDTO.builder()
                         .accountId(account.getId())

@@ -50,13 +50,13 @@ public class AccountController {
     }
 
     @PostMapping
-    public ResponseEntity<AccountDTO> createAccount(@RequestBody CreateAccountRequestDTO createAccountRequestDTO){
+    public ResponseEntity<?> createAccount(@RequestBody CreateAccountRequestDTO createAccountRequestDTO){
         try {
             final AccountDTO accountDTO = accountService.createAccount(createAccountRequestDTO);
             return new ResponseEntity<>(accountDTO, HttpStatus.OK);
         }
-        catch( OnboardingException e ) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        catch(OnboardingException e ) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
 
