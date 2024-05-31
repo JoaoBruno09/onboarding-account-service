@@ -2,6 +2,7 @@ package com.bank.onboarding.accountservice.services;
 
 import com.bank.onboarding.commonslib.persistence.exceptions.OnboardingException;
 import com.bank.onboarding.commonslib.persistence.models.Account;
+import com.bank.onboarding.commonslib.utils.kafka.ErrorEvent;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountCardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountDeleteCardDTO;
@@ -19,4 +20,5 @@ public interface AccountService {
     CardDTO putAccountCard(String accountNumber, AccountCardDTO accountTypeDTO);
     AccountDTO deleteAccountCard(String accountNumber, String cardId, AccountDeleteCardDTO accountDeleteCardDTO);
     AccountDTO putAccountNetbanco(String accountNumber, AccountNetbancoDTO accountNetbancoDTO);
+    void handleErrorEvent(ErrorEvent errorEvent);
 }

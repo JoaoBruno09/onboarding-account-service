@@ -11,6 +11,7 @@ import com.bank.onboarding.commonslib.persistence.services.CardRepoService;
 import com.bank.onboarding.commonslib.persistence.services.CustomerRefRepoService;
 import com.bank.onboarding.commonslib.utils.OnboardingUtils;
 import com.bank.onboarding.commonslib.utils.kafka.CreateAccountEvent;
+import com.bank.onboarding.commonslib.utils.kafka.ErrorEvent;
 import com.bank.onboarding.commonslib.utils.kafka.KafkaProducer;
 import com.bank.onboarding.commonslib.utils.mappers.AccountMapper;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountCardDTO;
@@ -34,6 +35,8 @@ import java.util.Optional;
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.ACCOUNT_TYPES;
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.CARD_TYPES;
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.faker;
+import static com.bank.onboarding.commonslib.persistence.enums.OperationType.CREATE_ACCOUNT;
+import static com.bank.onboarding.commonslib.persistence.enums.OperationType.UPDATE_ACCOUNT_REF;
 
 @Slf4j
 @Service
@@ -48,6 +51,12 @@ public class AccountServiceImpl implements AccountService {
 
     @Value("${spring.kafka.producer.customer.topic-name}")
     private String customerTopicName;
+
+    @Value("${spring.kafka.producer.intervention.topic-name}")
+    private String interventionTopicName;
+
+    @Value("${spring.kafka.producer.document.topic-name}")
+    private String documentTopicName;
 
     @Override
     public List<Account> getAllAccounts() {
@@ -64,27 +73,27 @@ public class AccountServiceImpl implements AccountService {
 
         String iban = faker.finance().iban("PT");
 
-         Account account = accountRepoService.saveAccountDB(Account.builder()
-                .accountManager(accountManager)
-                .active(Boolean.FALSE)
-                .creationTime(LocalDateTime.now())
-                .currencyCode("EUR")
-                .iban(iban)
-                .lastUpdateTime(LocalDateTime.now())
-                .number(iban.trim().substring(iban.length()-19))
-                .onlineBankingIndicator(Boolean.FALSE)
-                .phase(1)
-                .type(accountType)
-                .build());
+        Account account = accountRepoService.saveAccountDB(Account.builder()
+            .accountManager(accountManager)
+            .active(Boolean.FALSE)
+            .creationTime(LocalDateTime.now())
+            .currencyCode("EUR")
+            .iban(iban)
+            .lastUpdateTime(LocalDateTime.now())
+            .number(iban.trim().substring(iban.length()-19))
+            .onlineBankingIndicator(Boolean.FALSE)
+            .phase(1)
+            .type(accountType)
+            .build());
 
-        kafkaProducer.sendEvent(customerTopicName, CreateAccountEvent.builder()
+        AccountRefDTO accountRefDTO = AccountRefDTO.builder().accountId(account.getId()).accountNumber(account.getNumber()).build();
+
+        kafkaProducer.sendEvent(customerTopicName, CREATE_ACCOUNT, CreateAccountEvent.builder()
                 .createAccountRequestDTO(createAccountRequestDTO)
-                .accountRefDTO(AccountRefDTO.builder()
-                        .accountId(account.getId())
-                        .accountNumber(account.getNumber())
-                        .build())
+                .accountRefDTO(accountRefDTO)
                 .build());
-
+        kafkaProducer.sendEvent(documentTopicName, UPDATE_ACCOUNT_REF , accountRefDTO);
+        kafkaProducer.sendEvent(interventionTopicName, UPDATE_ACCOUNT_REF , accountRefDTO);
 
         return AccountMapper.INSTANCE.toAccountDTO(account);
     }
@@ -97,7 +106,7 @@ public class AccountServiceImpl implements AccountService {
 
         onboardingUtils.isValidPhase(accountTypeRequestDTO.getAccountPhase(), OperationType.TYPE_ACCOUNT);
 
-        Account account = accountRepoService.findAccountDB(accountNumber);
+        Account account = accountRepoService.getAccountByNumber(accountNumber);
         AccountDTO accountDTOReturned = null;
         String accountType = Optional.ofNullable(accountTypeRequestDTO.getAccountType()).orElse("");
 
@@ -127,7 +136,7 @@ public class AccountServiceImpl implements AccountService {
             throw new OnboardingException("Não é possível adicionar cartão de conta. O cartão que está a tentar introduzir ou a fase introduzida são inválidos");
 
         onboardingUtils.isValidPhase(accountCardDTO.getAccountPhase(), OperationType.CARD_ACCOUNT);
-        Account account = accountRepoService.findAccountDB(accountNumber);
+        Account account = accountRepoService.getAccountByNumber(accountNumber);
 
         Card newCard = Card.builder()
                 .annualFee(Double.valueOf(faker.commerce().price(5.00,20.00)))
@@ -156,7 +165,7 @@ public class AccountServiceImpl implements AccountService {
         onboardingUtils.isValidPhase(accountDeleteCardDTO.getAccountPhase(), OperationType.CARD_ACCOUNT);
         Card card = cardRepoService.findCardDB(cardNumber);
         cardRepoService.deleteCardDB(card.getId());
-        Account account = accountRepoService.findAccountDB(accountNumber);
+        Account account = accountRepoService.getAccountByNumber(accountNumber);
 
         return AccountMapper.INSTANCE.toAccountDTO(account);
     }
@@ -164,11 +173,18 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public AccountDTO putAccountNetbanco(String accountNumber, AccountNetbancoDTO accountNetbancoDTO) {
         onboardingUtils.isValidPhase(accountNetbancoDTO.getAccountPhase(), OperationType.NETBANCO_ACCOUNT);
-        Account account = accountRepoService.findAccountDB(accountNumber);
+        Account account = accountRepoService.getAccountByNumber(accountNumber);
         account.setOnlineBankingIndicator(accountNetbancoDTO.isWantsNetbanco());
         account.setLastUpdateTime(LocalDateTime.now());
         account = accountRepoService.saveAccountDB(account);
 
         return AccountMapper.INSTANCE.toAccountDTO(account);
+    }
+
+    @Override
+    public void handleErrorEvent(ErrorEvent errorEvent) {
+        if(CREATE_ACCOUNT.equals(errorEvent.getOperationType())){
+            accountRepoService.deleteAccountById(errorEvent.getAccountRefDTO().getAccountId());
+        }
     }
 }
