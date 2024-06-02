@@ -147,7 +147,7 @@ public class AccountServiceImpl implements AccountService {
 
         Optional.ofNullable(accountCardDTO.getCustomerNumber()).orElseThrow(() ->
                 new OnboardingException("A lista de clientes para se adicionar o cartão está vazia")).forEach(customerNumber -> {
-                    String customerId = customerRefRepoService.findCustomerDB(customerNumber).getId();
+                    String customerId = customerRefRepoService.findCustomerRefByCustomerNumber(customerNumber).getId();
                     if( customerId != null) {
                         cardRepoService.findAndDeleteCardDB(customerId, account.getId());
                         newCard.setCustomerId(customerNumber);
