@@ -28,14 +28,15 @@ public class KafkaConsumer {
 
     @KafkaListener(topics = "${spring.kafka.consumer.topic-name}",  groupId = "${spring.kafka.consumer.group-id}")
     public void consumeEvent(ConsumerRecord event){
+        String eventValue = event.value().toString();
         switch (event.key().toString()) {
             case "UPDATE_CUSTOMER_REF" -> {
-                CustomerRefDTO customerRefDTO = (CustomerRefDTO) eventSeDeserializer.deserialize(event.value().toString(), CustomerRefDTO.class);
+                CustomerRefDTO customerRefDTO = (CustomerRefDTO) eventSeDeserializer.deserialize(eventValue, CustomerRefDTO.class);
                 log.info("Event received to update Customer Ref with number {}", customerRefDTO.getCustomerNumber());
                 customerRefRepoService.saveCustomerRefDB(CustomerMapper.INSTANCE.toCustomerRef(customerRefDTO));
             }
             default -> {
-                ErrorEvent errorEvent = (ErrorEvent) eventSeDeserializer.deserialize(event.value().toString(), ErrorEvent.class);
+                ErrorEvent errorEvent = (ErrorEvent) eventSeDeserializer.deserialize(eventValue, ErrorEvent.class);
                 log.info("Error event {} received for account number {}", errorEvent, Optional.ofNullable(errorEvent.getAccountRefDTO()).map(AccountRefDTO::getAccountNumber).orElse(""));
                 accountService.handleErrorEvent(errorEvent);
             }
