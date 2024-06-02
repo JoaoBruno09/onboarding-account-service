@@ -1,7 +1,7 @@
 package com.bank.onboarding.accountservice.services;
 
 import com.bank.onboarding.commonslib.persistence.services.CustomerRefRepoService;
-import com.bank.onboarding.commonslib.utils.kafka.ErrorEvent;
+import com.bank.onboarding.commonslib.utils.kafka.models.ErrorEvent;
 import com.bank.onboarding.commonslib.utils.kafka.EventSeDeserializer;
 import com.bank.onboarding.commonslib.utils.mappers.CustomerMapper;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountRefDTO;

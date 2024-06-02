@@ -6,14 +6,17 @@ import com.bank.onboarding.commonslib.persistence.enums.OperationType;
 import com.bank.onboarding.commonslib.persistence.exceptions.OnboardingException;
 import com.bank.onboarding.commonslib.persistence.models.Account;
 import com.bank.onboarding.commonslib.persistence.models.Card;
+import com.bank.onboarding.commonslib.persistence.models.CustomerRef;
 import com.bank.onboarding.commonslib.persistence.services.AccountRepoService;
 import com.bank.onboarding.commonslib.persistence.services.CardRepoService;
 import com.bank.onboarding.commonslib.persistence.services.CustomerRefRepoService;
 import com.bank.onboarding.commonslib.utils.OnboardingUtils;
-import com.bank.onboarding.commonslib.utils.kafka.CreateAccountEvent;
-import com.bank.onboarding.commonslib.utils.kafka.ErrorEvent;
 import com.bank.onboarding.commonslib.utils.kafka.KafkaProducer;
+import com.bank.onboarding.commonslib.utils.kafka.models.CardAndNetbancoEvent;
+import com.bank.onboarding.commonslib.utils.kafka.models.CreateAccountEvent;
+import com.bank.onboarding.commonslib.utils.kafka.models.ErrorEvent;
 import com.bank.onboarding.commonslib.utils.mappers.AccountMapper;
+import com.bank.onboarding.commonslib.utils.mappers.CustomerMapper;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountCardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountDeleteCardDTO;
@@ -147,11 +150,16 @@ public class AccountServiceImpl implements AccountService {
 
         Optional.ofNullable(accountCardDTO.getCustomerNumber()).orElseThrow(() ->
                 new OnboardingException("A lista de clientes para se adicionar o cartão está vazia")).forEach(customerNumber -> {
-                    String customerId = customerRefRepoService.findCustomerRefByCustomerNumber(customerNumber).getId();
-                    if( customerId != null) {
+                    CustomerRef customerRefDTO = customerRefRepoService.findCustomerRefByCustomerNumber(customerNumber);
+                    String customerId = customerRefDTO.getId();
+
+                    if(customerId != null) {
                         cardRepoService.findAndDeleteCardDB(customerId, account.getId());
                         newCard.setCustomerId(customerNumber);
                         cardRepoService.saveCardDB(newCard);
+
+                        kafkaProducer.sendEvent(customerTopicName, OperationType.CARD_ACCOUNT,
+                                CardAndNetbancoEvent.builder().value(true).customerRefDTO(CustomerMapper.INSTANCE.toCustomerRefDTO(customerRefDTO)).build());
                     }else{
                         throw new OnboardingException("Não foi possível adicionar o cartão ao cliente com o número " + customerNumber);
                     }
@@ -163,20 +171,33 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public AccountDTO deleteAccountCard(String accountNumber, String cardNumber, AccountDeleteCardDTO accountDeleteCardDTO) {
         onboardingUtils.isValidPhase(accountDeleteCardDTO.getAccountPhase(), OperationType.CARD_ACCOUNT);
-        Card card = cardRepoService.findCardDB(cardNumber);
-        cardRepoService.deleteCardDB(card.getId());
-        Account account = accountRepoService.getAccountByNumber(accountNumber);
+        CustomerRef customerRefDTO = customerRefRepoService.findCustomerRefByCustomerNumber(accountDeleteCardDTO.getCustomerNumber());
+        if (customerRefDTO.getId() != null){
+            Card card = cardRepoService.findCardDB(cardNumber);
+            cardRepoService.deleteCardDB(card.getId());
 
-        return AccountMapper.INSTANCE.toAccountDTO(account);
+            kafkaProducer.sendEvent(customerTopicName, OperationType.CARD_ACCOUNT,
+                    CardAndNetbancoEvent.builder().value(false).customerRefDTO(CustomerMapper.INSTANCE.toCustomerRefDTO(customerRefDTO)).build());
+        }
+
+        return AccountMapper.INSTANCE.toAccountDTO(accountRepoService.getAccountByNumber(accountNumber));
     }
 
     @Override
     public AccountDTO putAccountNetbanco(String accountNumber, AccountNetbancoDTO accountNetbancoDTO) {
         onboardingUtils.isValidPhase(accountNetbancoDTO.getAccountPhase(), OperationType.NETBANCO_ACCOUNT);
+        CustomerRef customerRefDTO = customerRefRepoService.findCustomerRefByCustomerNumber(accountNetbancoDTO.getCustomerNumber());
         Account account = accountRepoService.getAccountByNumber(accountNumber);
-        account.setOnlineBankingIndicator(accountNetbancoDTO.isWantsNetbanco());
-        account.setLastUpdateTime(LocalDateTime.now());
-        account = accountRepoService.saveAccountDB(account);
+
+        if (customerRefDTO.getId() != null){
+            boolean wantsNetbanco = accountNetbancoDTO.isWantsNetbanco();
+            account.setOnlineBankingIndicator(wantsNetbanco);
+            account.setLastUpdateTime(LocalDateTime.now());
+            account = accountRepoService.saveAccountDB(account);
+
+            kafkaProducer.sendEvent(customerTopicName, OperationType.NETBANCO_ACCOUNT,
+                    CardAndNetbancoEvent.builder().value(wantsNetbanco).customerRefDTO(CustomerMapper.INSTANCE.toCustomerRefDTO(customerRefDTO)).build());
+        }
 
         return AccountMapper.INSTANCE.toAccountDTO(account);
     }
