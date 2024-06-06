@@ -39,6 +39,7 @@ import static com.bank.onboarding.commonslib.persistence.constants.OnboardingCon
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.CARD_TYPES;
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.faker;
 import static com.bank.onboarding.commonslib.persistence.enums.OperationType.ADD_INTERVENIENT;
+import static com.bank.onboarding.commonslib.persistence.enums.OperationType.ADD_REL;
 import static com.bank.onboarding.commonslib.persistence.enums.OperationType.CREATE_ACCOUNT;
 import static com.bank.onboarding.commonslib.persistence.enums.OperationType.UPDATE_ACCOUNT_REF;
 
@@ -207,7 +208,8 @@ public class AccountServiceImpl implements AccountService {
     public void handleErrorEvent(ErrorEvent errorEvent) {
         if(CREATE_ACCOUNT.equals(errorEvent.getOperationType())){
             accountRepoService.deleteAccountById(errorEvent.getAccountRefDTO().getAccountId());
-        }else if (ADD_INTERVENIENT.equals(errorEvent.getOperationType())){
+        }else if (Boolean.TRUE.equals(errorEvent.getIsNewCustomer())
+                && (ADD_INTERVENIENT.equals(errorEvent.getOperationType()) || ADD_REL.equals(errorEvent.getOperationType()))){
             customerRefRepoService.deleteCustomerById(errorEvent.getCustomerRefDTO().getCustomerId());
         }
     }
