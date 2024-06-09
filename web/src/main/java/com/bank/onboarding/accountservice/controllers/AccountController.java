@@ -12,6 +12,7 @@ import com.bank.onboarding.commonslib.web.dtos.account.CardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.CreateAccountRequestDTO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
@@ -34,7 +36,9 @@ public class AccountController {
     private static final String ACCOUNT_ID_PATH_PARAM = "/{accountNumber}";
 
     @PostMapping
-    public ResponseEntity<?> createAccount(@RequestBody @Valid CreateAccountRequestDTO createAccountRequestDTO){
+    public ResponseEntity<?> createAccount(@RequestBody @Valid CreateAccountRequestDTO createAccountRequestDTO,
+                                           @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+                                           @RequestHeader("X-Onboarding-Client-Id") String clientId){
         try {
             final AccountDTO accountDTO = accountService.createAccount(createAccountRequestDTO);
             return new ResponseEntity<>(accountDTO, HttpStatus.OK);
@@ -46,7 +50,9 @@ public class AccountController {
 
     @PatchMapping(ACCOUNT_ID_PATH_PARAM)
     public ResponseEntity<AccountDTO> patchAccountType(@PathVariable("accountNumber") String accountNumber,
-                                                       @RequestBody @Valid AccountTypeRequestDTO accountTypeRequestDTO){
+                                                       @RequestBody @Valid AccountTypeRequestDTO accountTypeRequestDTO,
+                                                       @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+                                                       @RequestHeader("X-Onboarding-Client-Id") String clientId){
         try {
             final AccountDTO accountDTO = accountService.patchAccountType(accountNumber, accountTypeRequestDTO);
             if(accountDTO == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Dados inseridos inválidos");
@@ -59,7 +65,9 @@ public class AccountController {
 
     @PutMapping(ACCOUNT_ID_PATH_PARAM + "/card")
     public ResponseEntity<CardDTO> putAccountCard(@PathVariable("accountNumber") String accountNumber,
-                                                  @RequestBody @Valid AccountCardDTO accountCardDTO){
+                                                  @RequestBody @Valid AccountCardDTO accountCardDTO,
+                                                  @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+                                                  @RequestHeader("X-Onboarding-Client-Id") String clientId){
         try {
             final CardDTO cardDTO = accountService.putAccountCard(accountNumber, accountCardDTO);
             return new ResponseEntity<>(cardDTO, HttpStatus.CREATED);
@@ -72,7 +80,9 @@ public class AccountController {
     @DeleteMapping(ACCOUNT_ID_PATH_PARAM + "/card/{cardNumber}")
     public ResponseEntity<AccountDTO> deleteAccountCard(@PathVariable("accountNumber") String accountNumber,
                                                         @PathVariable("cardNumber") String cardNumber,
-                                                        @RequestBody @Valid AccountDeleteCardDTO accountDeleteCardDTO){
+                                                        @RequestBody @Valid AccountDeleteCardDTO accountDeleteCardDTO,
+                                                        @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+                                                        @RequestHeader("X-Onboarding-Client-Id") String clientId){
         try {
             final AccountDTO accountDTO = accountService.deleteAccountCard(accountNumber, cardNumber, accountDeleteCardDTO);
             return new ResponseEntity<>(accountDTO, HttpStatus.OK);
@@ -84,7 +94,9 @@ public class AccountController {
 
     @PutMapping(ACCOUNT_ID_PATH_PARAM + "/netbanco")
     public ResponseEntity<AccountDTO> putAccountNetbanco(@PathVariable("accountNumber") String accountNumber,
-                                                         @RequestBody @Valid AccountNetbancoDTO accountNetbancoDTO){
+                                                         @RequestBody @Valid AccountNetbancoDTO accountNetbancoDTO,
+                                                         @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+                                                         @RequestHeader("X-Onboarding-Client-Id") String clientId){
         try {
             final AccountDTO accountDTO = accountService.putAccountNetbanco(accountNumber, accountNetbancoDTO);
             return new ResponseEntity<>(accountDTO, HttpStatus.OK);
