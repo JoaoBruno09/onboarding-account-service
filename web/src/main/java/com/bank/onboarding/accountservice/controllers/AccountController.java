@@ -3,6 +3,7 @@ package com.bank.onboarding.accountservice.controllers;
 
 import com.bank.onboarding.accountservice.services.AccountService;
 import com.bank.onboarding.commonslib.persistence.exceptions.OnboardingException;
+import com.bank.onboarding.commonslib.utils.OnboardingUtils;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountCardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountDeleteCardDTO;
@@ -10,6 +11,8 @@ import com.bank.onboarding.commonslib.web.dtos.account.AccountNetbancoDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountTypeRequestDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.CardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.CreateAccountRequestDTO;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import feign.Request;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -32,24 +35,25 @@ import org.springframework.web.server.ResponseStatusException;
 public class AccountController {
 
     private final AccountService accountService;
+    private final OnboardingUtils onboardingUtils;
 
     private static final String ACCOUNT_ID_PATH_PARAM = "/{accountNumber}";
 
     @PostMapping
     public ResponseEntity<?> createAccount(@RequestBody @Valid CreateAccountRequestDTO createAccountRequestDTO,
                                            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
-                                           @RequestHeader("X-Onboarding-Client-Id") String clientId){
+                                           @RequestHeader("X-Onboarding-Client-Id") String clientId) throws JsonProcessingException {
         try {
             final AccountDTO accountDTO = accountService.createAccount(createAccountRequestDTO);
             return new ResponseEntity<>(accountDTO, HttpStatus.OK);
         }
         catch(OnboardingException e ) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            return onboardingUtils.buildResponseEntity(Request.HttpMethod.POST.name(), e.getMessage());
         }
     }
 
     @PatchMapping(ACCOUNT_ID_PATH_PARAM)
-    public ResponseEntity<AccountDTO> patchAccountType(@PathVariable("accountNumber") String accountNumber,
+    public ResponseEntity<?> patchAccountType(@PathVariable("accountNumber") String accountNumber,
                                                        @RequestBody @Valid AccountTypeRequestDTO accountTypeRequestDTO,
                                                        @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
                                                        @RequestHeader("X-Onboarding-Client-Id") String clientId){
@@ -59,12 +63,12 @@ public class AccountController {
             return new ResponseEntity<>(accountDTO, HttpStatus.OK);
         }
         catch( OnboardingException e ) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+            return onboardingUtils.buildResponseEntity(Request.HttpMethod.POST.name(), e.getMessage());
         }
     }
 
     @PutMapping(ACCOUNT_ID_PATH_PARAM + "/card")
-    public ResponseEntity<CardDTO> putAccountCard(@PathVariable("accountNumber") String accountNumber,
+    public ResponseEntity<?> putAccountCard(@PathVariable("accountNumber") String accountNumber,
                                                   @RequestBody @Valid AccountCardDTO accountCardDTO,
                                                   @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
                                                   @RequestHeader("X-Onboarding-Client-Id") String clientId){
@@ -73,12 +77,12 @@ public class AccountController {
             return new ResponseEntity<>(cardDTO, HttpStatus.CREATED);
         }
         catch( Exception e ) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+            return onboardingUtils.buildResponseEntity(Request.HttpMethod.POST.name(), e.getMessage());
         }
     }
 
     @DeleteMapping(ACCOUNT_ID_PATH_PARAM + "/card/{cardNumber}")
-    public ResponseEntity<AccountDTO> deleteAccountCard(@PathVariable("accountNumber") String accountNumber,
+    public ResponseEntity<?> deleteAccountCard(@PathVariable("accountNumber") String accountNumber,
                                                         @PathVariable("cardNumber") String cardNumber,
                                                         @RequestBody @Valid AccountDeleteCardDTO accountDeleteCardDTO,
                                                         @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
@@ -88,12 +92,12 @@ public class AccountController {
             return new ResponseEntity<>(accountDTO, HttpStatus.OK);
         }
         catch( Exception e ) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+            return onboardingUtils.buildResponseEntity(Request.HttpMethod.POST.name(), e.getMessage());
         }
     }
 
     @PutMapping(ACCOUNT_ID_PATH_PARAM + "/netbanco")
-    public ResponseEntity<AccountDTO> putAccountNetbanco(@PathVariable("accountNumber") String accountNumber,
+    public ResponseEntity<?> putAccountNetbanco(@PathVariable("accountNumber") String accountNumber,
                                                          @RequestBody @Valid AccountNetbancoDTO accountNetbancoDTO,
                                                          @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
                                                          @RequestHeader("X-Onboarding-Client-Id") String clientId){
@@ -102,7 +106,7 @@ public class AccountController {
             return new ResponseEntity<>(accountDTO, HttpStatus.OK);
         }
         catch( Exception e ) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+            return onboardingUtils.buildResponseEntity(Request.HttpMethod.POST.name(), e.getMessage());
         }
     }
 

@@ -74,7 +74,7 @@ public class AccountServiceImpl implements AccountService {
         String accountManager = Optional.ofNullable(createAccountRequestDTO.getAccountManager()).orElse("");
         String accountType = Optional.ofNullable(createAccountRequestDTO.getAccountType()).orElse("");
         if(StringUtils.isBlank(accountManager) || !ACCOUNT_TYPES.contains(accountType))
-            throw new OnboardingException("Não foi inserido um gestor de conta válido, pelo que não é possível criar a conta");
+            throw new OnboardingException("Não foi inserido um gestor de conta válido ou o tipo de conta é inválido, pelo que não é possível criar a conta.");
 
         String iban = faker.finance().iban("PT");
 
