@@ -63,7 +63,7 @@ public class AccountController {
             return new ResponseEntity<>(accountDTO, HttpStatus.OK);
         }
         catch( OnboardingException e ) {
-            return onboardingUtils.buildResponseEntity(Request.HttpMethod.POST.name(), e.getMessage());
+            return onboardingUtils.buildResponseEntity(Request.HttpMethod.PATCH.name(), e.getMessage());
         }
     }
 
@@ -77,7 +77,7 @@ public class AccountController {
             return new ResponseEntity<>(cardDTO, HttpStatus.CREATED);
         }
         catch( Exception e ) {
-            return onboardingUtils.buildResponseEntity(Request.HttpMethod.POST.name(), e.getMessage());
+            return onboardingUtils.buildResponseEntity(Request.HttpMethod.PUT.name(), e.getMessage());
         }
     }
 
@@ -92,7 +92,7 @@ public class AccountController {
             return new ResponseEntity<>(accountDTO, HttpStatus.OK);
         }
         catch( Exception e ) {
-            return onboardingUtils.buildResponseEntity(Request.HttpMethod.POST.name(), e.getMessage());
+            return onboardingUtils.buildResponseEntity(Request.HttpMethod.DELETE.name(), e.getMessage());
         }
     }
 
@@ -106,7 +106,7 @@ public class AccountController {
             return new ResponseEntity<>(accountDTO, HttpStatus.OK);
         }
         catch( Exception e ) {
-            return onboardingUtils.buildResponseEntity(Request.HttpMethod.POST.name(), e.getMessage());
+            return onboardingUtils.buildResponseEntity(Request.HttpMethod.PUT.name(), e.getMessage());
         }
     }
 
