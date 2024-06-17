@@ -3,6 +3,7 @@ package com.bank.onboarding.accountservice.services.impl;
 import com.bank.onboarding.accountservice.services.AccountService;
 import com.bank.onboarding.commonslib.persistence.enums.CustomerType;
 import com.bank.onboarding.commonslib.persistence.enums.OperationType;
+import com.bank.onboarding.commonslib.persistence.enums.ValidationType;
 import com.bank.onboarding.commonslib.persistence.exceptions.OnboardingException;
 import com.bank.onboarding.commonslib.persistence.models.Account;
 import com.bank.onboarding.commonslib.persistence.models.Card;
@@ -32,8 +33,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.ACCOUNT_TYPES;
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.CARD_TYPES;
@@ -42,6 +46,9 @@ import static com.bank.onboarding.commonslib.persistence.enums.OperationType.ADD
 import static com.bank.onboarding.commonslib.persistence.enums.OperationType.ADD_REL;
 import static com.bank.onboarding.commonslib.persistence.enums.OperationType.CREATE_ACCOUNT;
 import static com.bank.onboarding.commonslib.persistence.enums.OperationType.UPDATE_ACCOUNT_REF;
+import static com.bank.onboarding.commonslib.persistence.enums.ValidationType.VALID_CARD;
+import static com.bank.onboarding.commonslib.persistence.enums.ValidationType.VALID_NETBANCO;
+import static com.bank.onboarding.commonslib.persistence.enums.ValidationType.VALID_TYPE;
 
 @Slf4j
 @Service
@@ -119,6 +126,8 @@ public class AccountServiceImpl implements AccountService {
                 onboardingUtils.isEmpresaAccountType(accountType)) {
             account.setType(accountType);
             account.setLastUpdateTime(LocalDateTime.now());
+            Optional.ofNullable(account.getValidations()).orElse(new ArrayList<>()).add(VALID_TYPE);
+
             accountDTOReturned = AccountMapper.INSTANCE.toAccountDTO(accountRepoService.saveAccountDB(account));
         }else if(CustomerType.PARTICULAR.name().equals(Optional.ofNullable(accountTypeRequestDTO.getCustomerType()).orElse(""))){
             int age = onboardingUtils.calculateAge(Optional.ofNullable(accountTypeRequestDTO.getCustomerBirthDate()).orElse(LocalDateTime.now()));
@@ -128,6 +137,8 @@ public class AccountServiceImpl implements AccountService {
                     onboardingUtils.isMinorAndHasProgenitorOrTutorAndAccountTypeIsJOV(age, customerType) || onboardingUtils.isParticularAccountType(accountType)){
                 account.setType(accountType);
                 account.setLastUpdateTime(LocalDateTime.now());
+                Optional.ofNullable(account.getValidations()).orElse(new ArrayList<>()).add(VALID_TYPE);
+
                 accountDTOReturned = AccountMapper.INSTANCE.toAccountDTO(accountRepoService.saveAccountDB(account));
             }
         }
@@ -160,6 +171,9 @@ public class AccountServiceImpl implements AccountService {
                         newCard.setCustomerId(customerNumber);
                         cardRepoService.saveCardDB(newCard);
 
+                        Optional.ofNullable(account.getValidations()).orElse(new ArrayList<>()).add(VALID_CARD);
+                        accountRepoService.saveAccountDB(account);
+
                         kafkaProducer.sendEvent(customerTopicName, OperationType.CARD_ACCOUNT,
                                 CardAndNetbancoEvent.builder().value(true).customerRefDTO(CustomerMapper.INSTANCE.toCustomerRefDTO(customerRefDTO)).build());
                     }else{
@@ -178,6 +192,11 @@ public class AccountServiceImpl implements AccountService {
             Card card = cardRepoService.findCardDB(cardNumber);
             cardRepoService.deleteCardDB(card.getId());
 
+            Account account = accountRepoService.getAccountById(card.getAccountId());
+            Optional.ofNullable(account.getValidations()).ifPresent(validationTypes ->
+                account.setValidations(validationTypes.stream().filter(validationType -> !VALID_CARD.equals(validationType)).toList()));
+            accountRepoService.saveAccountDB(account);
+
             kafkaProducer.sendEvent(customerTopicName, OperationType.CARD_ACCOUNT,
                     CardAndNetbancoEvent.builder().value(false).customerRefDTO(CustomerMapper.INSTANCE.toCustomerRefDTO(customerRefDTO)).build());
         }
@@ -195,6 +214,18 @@ public class AccountServiceImpl implements AccountService {
             boolean wantsNetbanco = accountNetbancoDTO.isWantsNetbanco();
             account.setOnlineBankingIndicator(wantsNetbanco);
             account.setLastUpdateTime(LocalDateTime.now());
+
+            if(wantsNetbanco){
+                Optional.ofNullable(account.getValidations()).orElse(new ArrayList<>()).add(VALID_NETBANCO);
+            }else{
+                AtomicReference<List<ValidationType>> validations = new AtomicReference<>(new ArrayList<>());
+                Optional.ofNullable(account.getValidations()).ifPresent(validationTypes ->
+                        validations.set(validationTypes.stream().filter(validationType ->
+                                !VALID_NETBANCO.equals(validationType)).collect(Collectors.toList())));
+
+                if(!validations.get().isEmpty()) account.setValidations(validations.get());
+            }
+
             account = accountRepoService.saveAccountDB(account);
 
             kafkaProducer.sendEvent(customerTopicName, OperationType.NETBANCO_ACCOUNT,
