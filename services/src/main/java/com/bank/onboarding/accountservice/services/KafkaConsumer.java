@@ -1,8 +1,10 @@
 package com.bank.onboarding.accountservice.services;
 
+import com.bank.onboarding.commonslib.persistence.enums.ValidationType;
 import com.bank.onboarding.commonslib.persistence.services.CustomerRefRepoService;
 import com.bank.onboarding.commonslib.utils.kafka.models.ErrorEvent;
 import com.bank.onboarding.commonslib.utils.kafka.EventSeDeserializer;
+import com.bank.onboarding.commonslib.utils.kafka.models.ValidationEvent;
 import com.bank.onboarding.commonslib.utils.mappers.CustomerMapper;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountRefDTO;
 import com.bank.onboarding.commonslib.web.dtos.customer.CustomerRefDTO;
@@ -34,6 +36,11 @@ public class KafkaConsumer {
                 CustomerRefDTO customerRefDTO = (CustomerRefDTO) eventSeDeserializer.deserialize(eventValue, CustomerRefDTO.class);
                 log.info("Event received to update Customer Ref with number {}", customerRefDTO.getCustomerNumber());
                 customerRefRepoService.saveCustomerRefDB(CustomerMapper.INSTANCE.toCustomerRef(customerRefDTO));
+            }
+            case "DOCS_UPLOAD", "UPDATE_CUSTOMER" -> {
+                ValidationEvent validationEvent = (ValidationEvent) eventSeDeserializer.deserialize(eventValue, ValidationEvent.class);
+                log.info("Event received to update validations for account");
+                accountService.validateAccount(validationEvent);
             }
             default -> {
                 ErrorEvent errorEvent = (ErrorEvent) eventSeDeserializer.deserialize(eventValue, ErrorEvent.class);

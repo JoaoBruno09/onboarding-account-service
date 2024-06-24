@@ -11,6 +11,7 @@ import com.bank.onboarding.commonslib.web.dtos.account.AccountNetbancoDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountTypeRequestDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.CardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.CreateAccountRequestDTO;
+import com.bank.onboarding.commonslib.web.dtos.account.MoveNextPhaseDTO;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import feign.Request;
 import jakarta.validation.Valid;
@@ -37,7 +38,7 @@ public class AccountController {
     private final AccountService accountService;
     private final OnboardingUtils onboardingUtils;
 
-    private static final String ACCOUNT_ID_PATH_PARAM = "/{accountNumber}";
+    private static final String ACCOUNT_NUMBER_PATH_PARAM = "/{accountNumber}";
 
     @PostMapping
     public ResponseEntity<?> createAccount(@RequestBody @Valid CreateAccountRequestDTO createAccountRequestDTO,
@@ -52,7 +53,7 @@ public class AccountController {
         }
     }
 
-    @PatchMapping(ACCOUNT_ID_PATH_PARAM)
+    @PatchMapping(ACCOUNT_NUMBER_PATH_PARAM)
     public ResponseEntity<?> patchAccountType(@PathVariable("accountNumber") String accountNumber,
                                                        @RequestBody @Valid AccountTypeRequestDTO accountTypeRequestDTO,
                                                        @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
@@ -67,7 +68,7 @@ public class AccountController {
         }
     }
 
-    @PutMapping(ACCOUNT_ID_PATH_PARAM + "/card")
+    @PutMapping(ACCOUNT_NUMBER_PATH_PARAM + "/card")
     public ResponseEntity<?> putAccountCard(@PathVariable("accountNumber") String accountNumber,
                                                   @RequestBody @Valid AccountCardDTO accountCardDTO,
                                                   @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
@@ -81,7 +82,7 @@ public class AccountController {
         }
     }
 
-    @DeleteMapping(ACCOUNT_ID_PATH_PARAM + "/card/{cardNumber}")
+    @DeleteMapping(ACCOUNT_NUMBER_PATH_PARAM + "/card/{cardNumber}")
     public ResponseEntity<?> deleteAccountCard(@PathVariable("accountNumber") String accountNumber,
                                                         @PathVariable("cardNumber") String cardNumber,
                                                         @RequestBody @Valid AccountDeleteCardDTO accountDeleteCardDTO,
@@ -96,13 +97,27 @@ public class AccountController {
         }
     }
 
-    @PutMapping(ACCOUNT_ID_PATH_PARAM + "/netbanco")
+    @PutMapping(ACCOUNT_NUMBER_PATH_PARAM + "/netbanco")
     public ResponseEntity<?> putAccountNetbanco(@PathVariable("accountNumber") String accountNumber,
                                                          @RequestBody @Valid AccountNetbancoDTO accountNetbancoDTO,
                                                          @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
                                                          @RequestHeader("X-Onboarding-Client-Id") String clientId){
         try {
             final AccountDTO accountDTO = accountService.putAccountNetbanco(accountNumber, accountNetbancoDTO);
+            return new ResponseEntity<>(accountDTO, HttpStatus.OK);
+        }
+        catch( Exception e ) {
+            return onboardingUtils.buildResponseEntity(Request.HttpMethod.PUT.name(), e.getMessage());
+        }
+    }
+
+    @PutMapping(ACCOUNT_NUMBER_PATH_PARAM + "/moveNextPhase")
+    public ResponseEntity<?> putMoveNextPhase(@PathVariable("accountNumber") String accountNumber,
+                                                @RequestBody @Valid MoveNextPhaseDTO moveNextPhaseDTO,
+                                                @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+                                                @RequestHeader("X-Onboarding-Client-Id") String clientId){
+        try {
+            final AccountDTO accountDTO = accountService.moveToNextPhase(accountNumber, moveNextPhaseDTO);
             return new ResponseEntity<>(accountDTO, HttpStatus.OK);
         }
         catch( Exception e ) {

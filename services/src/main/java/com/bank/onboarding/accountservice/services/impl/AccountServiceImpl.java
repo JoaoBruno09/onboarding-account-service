@@ -16,6 +16,7 @@ import com.bank.onboarding.commonslib.utils.kafka.KafkaProducer;
 import com.bank.onboarding.commonslib.utils.kafka.models.CardAndNetbancoEvent;
 import com.bank.onboarding.commonslib.utils.kafka.models.CreateAccountEvent;
 import com.bank.onboarding.commonslib.utils.kafka.models.ErrorEvent;
+import com.bank.onboarding.commonslib.utils.kafka.models.ValidationEvent;
 import com.bank.onboarding.commonslib.utils.mappers.AccountMapper;
 import com.bank.onboarding.commonslib.utils.mappers.CustomerMapper;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountCardDTO;
@@ -26,6 +27,7 @@ import com.bank.onboarding.commonslib.web.dtos.account.AccountRefDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountTypeRequestDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.CardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.CreateAccountRequestDTO;
+import com.bank.onboarding.commonslib.web.dtos.account.MoveNextPhaseDTO;
 import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,11 +36,13 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.ACCOUNT_PHASES;
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.ACCOUNT_TYPES;
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.CARD_TYPES;
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.faker;
@@ -47,6 +51,8 @@ import static com.bank.onboarding.commonslib.persistence.enums.OperationType.ADD
 import static com.bank.onboarding.commonslib.persistence.enums.OperationType.CREATE_ACCOUNT;
 import static com.bank.onboarding.commonslib.persistence.enums.OperationType.UPDATE_ACCOUNT_REF;
 import static com.bank.onboarding.commonslib.persistence.enums.ValidationType.VALID_CARD;
+import static com.bank.onboarding.commonslib.persistence.enums.ValidationType.VALID_CUSTOMERS;
+import static com.bank.onboarding.commonslib.persistence.enums.ValidationType.VALID_DOCUMENTS;
 import static com.bank.onboarding.commonslib.persistence.enums.ValidationType.VALID_NETBANCO;
 import static com.bank.onboarding.commonslib.persistence.enums.ValidationType.VALID_TYPE;
 
@@ -243,5 +249,42 @@ public class AccountServiceImpl implements AccountService {
                 && (ADD_INTERVENIENT.equals(errorEvent.getOperationType()) || ADD_REL.equals(errorEvent.getOperationType()))){
             customerRefRepoService.deleteCustomerById(errorEvent.getCustomerRefDTO().getCustomerId());
         }
+    }
+
+    @Override
+    public AccountDTO moveToNextPhase(String accountNumber, MoveNextPhaseDTO moveNextPhaseDTO) {
+        int nextPhase =  moveNextPhaseDTO.getNextPhase();
+        if(!ACCOUNT_PHASES.contains(nextPhase))
+            throw new OnboardingException("Não é possível avançar de fase. A fase seguinte introduzida não é válida");
+
+        Account account = accountRepoService.getAccountByNumber(accountNumber);
+
+        switch (nextPhase) {
+            case 2 -> {
+                if (!account.getValidations().contains(VALID_TYPE))
+                    onboardingUtils.throwInvalidPhaseForOperationTypeException();
+            }
+            case 3 -> {
+                if (!new HashSet<>(account.getValidations()).containsAll(List.of(VALID_TYPE, VALID_CUSTOMERS, VALID_CARD, VALID_NETBANCO)))
+                    onboardingUtils.throwInvalidPhaseForOperationTypeException();
+            }
+            case 4 -> {
+                if (!new HashSet<>(account.getValidations()).containsAll(List.of(VALID_TYPE, VALID_CUSTOMERS, VALID_CARD, VALID_NETBANCO, VALID_DOCUMENTS)))
+                    onboardingUtils.throwInvalidPhaseForOperationTypeException();
+            }
+            default -> {}
+        }
+
+        account.setPhase(nextPhase);
+
+        return AccountMapper.INSTANCE.toAccountDTO(account);
+    }
+
+    @Override
+    public void validateAccount(ValidationEvent validationEvent) {
+        Account accountToBeUpdated = accountRepoService.getAccountById(validationEvent.getAccountId());
+        if(accountToBeUpdated.getValidations() == null) accountToBeUpdated.setValidations(new ArrayList<>());
+        accountToBeUpdated.getValidations().add(validationEvent.getValidationType());
+        accountRepoService.saveAccountDB(accountToBeUpdated);
     }
 }
