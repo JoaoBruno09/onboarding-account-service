@@ -11,6 +11,7 @@ import com.bank.onboarding.commonslib.persistence.models.CustomerRef;
 import com.bank.onboarding.commonslib.persistence.services.AccountRepoService;
 import com.bank.onboarding.commonslib.persistence.services.CardRepoService;
 import com.bank.onboarding.commonslib.persistence.services.CustomerRefRepoService;
+import com.bank.onboarding.commonslib.utils.AsyncExecutor;
 import com.bank.onboarding.commonslib.utils.OnboardingUtils;
 import com.bank.onboarding.commonslib.utils.kafka.KafkaProducer;
 import com.bank.onboarding.commonslib.utils.kafka.models.CardAndNetbancoEvent;
@@ -39,6 +40,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -66,6 +68,7 @@ public class AccountServiceImpl implements AccountService {
     private final AccountRepoService accountRepoService;
     private final CardRepoService cardRepoService;
     private final KafkaProducer kafkaProducer;
+    private final AsyncExecutor asyncExecutor;
 
     @Value("${spring.kafka.producer.customer.topic-name}")
     private String customerTopicName;
@@ -106,12 +109,15 @@ public class AccountServiceImpl implements AccountService {
 
         AccountRefDTO accountRefDTO = AccountRefDTO.builder().accountId(account.getId()).accountNumber(account.getNumber()).build();
 
-        kafkaProducer.sendEvent(customerTopicName, CREATE_ACCOUNT, CreateAccountEvent.builder()
+        List<CompletableFuture<?>> completableFutureList = new ArrayList<>();
+        completableFutureList.add(CompletableFuture.runAsync(() -> kafkaProducer.sendEvent(customerTopicName, CREATE_ACCOUNT, CreateAccountEvent.builder()
                 .createAccountRequestDTO(createAccountRequestDTO)
                 .accountRefDTO(accountRefDTO)
-                .build());
-        kafkaProducer.sendEvent(documentTopicName, UPDATE_ACCOUNT_REF , accountRefDTO);
-        kafkaProducer.sendEvent(interventionTopicName, UPDATE_ACCOUNT_REF , accountRefDTO);
+                .build())));
+        completableFutureList.add(CompletableFuture.runAsync(()-> kafkaProducer.sendEvent(documentTopicName, UPDATE_ACCOUNT_REF , accountRefDTO)));
+        completableFutureList.add(CompletableFuture.runAsync(()-> kafkaProducer.sendEvent(interventionTopicName, UPDATE_ACCOUNT_REF , accountRefDTO)));
+
+        asyncExecutor.execute(completableFutureList);
 
         return AccountMapper.INSTANCE.toAccountDTO(account);
     }
