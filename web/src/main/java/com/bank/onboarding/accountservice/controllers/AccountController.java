@@ -12,7 +12,6 @@ import com.bank.onboarding.commonslib.web.dtos.account.AccountTypeRequestDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.CardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.CreateAccountRequestDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.MoveNextPhaseDTO;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import feign.Request;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -43,7 +42,7 @@ public class AccountController {
     @PostMapping
     public ResponseEntity<?> createAccount(@RequestBody @Valid CreateAccountRequestDTO createAccountRequestDTO,
                                            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
-                                           @RequestHeader("X-Onboarding-Client-Id") String clientId) throws JsonProcessingException {
+                                           @RequestHeader("X-Onboarding-Client-Id") String clientId) {
         try {
             final AccountDTO accountDTO = accountService.createAccount(createAccountRequestDTO);
             return new ResponseEntity<>(accountDTO, HttpStatus.OK);

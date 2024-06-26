@@ -3,23 +3,19 @@ package com.bank.onboarding.accountservice.services.impl;
 import com.bank.onboarding.accountservice.services.AccountService;
 import com.bank.onboarding.commonslib.persistence.enums.CustomerType;
 import com.bank.onboarding.commonslib.persistence.enums.OperationType;
-import com.bank.onboarding.commonslib.persistence.enums.ValidationType;
 import com.bank.onboarding.commonslib.persistence.exceptions.OnboardingException;
 import com.bank.onboarding.commonslib.persistence.models.Account;
 import com.bank.onboarding.commonslib.persistence.models.Card;
-import com.bank.onboarding.commonslib.persistence.models.CustomerRef;
 import com.bank.onboarding.commonslib.persistence.services.AccountRepoService;
 import com.bank.onboarding.commonslib.persistence.services.CardRepoService;
 import com.bank.onboarding.commonslib.persistence.services.CustomerRefRepoService;
-import com.bank.onboarding.commonslib.utils.AsyncExecutor;
 import com.bank.onboarding.commonslib.utils.OnboardingUtils;
 import com.bank.onboarding.commonslib.utils.kafka.KafkaProducer;
 import com.bank.onboarding.commonslib.utils.kafka.models.CardAndNetbancoEvent;
 import com.bank.onboarding.commonslib.utils.kafka.models.CreateAccountEvent;
+import com.bank.onboarding.commonslib.utils.kafka.models.DocUploadEvent;
 import com.bank.onboarding.commonslib.utils.kafka.models.ErrorEvent;
-import com.bank.onboarding.commonslib.utils.kafka.models.ValidationEvent;
 import com.bank.onboarding.commonslib.utils.mappers.AccountMapper;
-import com.bank.onboarding.commonslib.utils.mappers.CustomerMapper;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountCardDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountDTO;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountDeleteCardDTO;
@@ -36,13 +32,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.ACCOUNT_PHASES;
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.ACCOUNT_TYPES;
@@ -51,12 +41,6 @@ import static com.bank.onboarding.commonslib.persistence.constants.OnboardingCon
 import static com.bank.onboarding.commonslib.persistence.enums.OperationType.ADD_INTERVENIENT;
 import static com.bank.onboarding.commonslib.persistence.enums.OperationType.ADD_REL;
 import static com.bank.onboarding.commonslib.persistence.enums.OperationType.CREATE_ACCOUNT;
-import static com.bank.onboarding.commonslib.persistence.enums.OperationType.UPDATE_ACCOUNT_REF;
-import static com.bank.onboarding.commonslib.persistence.enums.ValidationType.VALID_CARD;
-import static com.bank.onboarding.commonslib.persistence.enums.ValidationType.VALID_CUSTOMERS;
-import static com.bank.onboarding.commonslib.persistence.enums.ValidationType.VALID_DOCUMENTS;
-import static com.bank.onboarding.commonslib.persistence.enums.ValidationType.VALID_NETBANCO;
-import static com.bank.onboarding.commonslib.persistence.enums.ValidationType.VALID_TYPE;
 
 @Slf4j
 @Service
@@ -68,21 +52,9 @@ public class AccountServiceImpl implements AccountService {
     private final AccountRepoService accountRepoService;
     private final CardRepoService cardRepoService;
     private final KafkaProducer kafkaProducer;
-    private final AsyncExecutor asyncExecutor;
 
     @Value("${spring.kafka.producer.customer.topic-name}")
     private String customerTopicName;
-
-    @Value("${spring.kafka.producer.intervention.topic-name}")
-    private String interventionTopicName;
-
-    @Value("${spring.kafka.producer.document.topic-name}")
-    private String documentTopicName;
-
-    @Override
-    public List<Account> getAllAccounts() {
-        return accountRepoService.findAccountsDB();
-    }
 
     @Override
     public AccountDTO createAccount(CreateAccountRequestDTO createAccountRequestDTO) {
@@ -92,7 +64,11 @@ public class AccountServiceImpl implements AccountService {
         if(StringUtils.isBlank(accountManager) || !ACCOUNT_TYPES.contains(accountType))
             throw new OnboardingException("Não foi inserido um gestor de conta válido ou o tipo de conta é inválido, pelo que não é possível criar a conta.");
 
-        String iban = faker.finance().iban("PT");
+
+        String iban;
+        do {
+            iban = faker.finance().iban("PT");
+        }while (iban != null && !accountRepoService.getAccountsByIBAN(iban).isEmpty());
 
         Account account = accountRepoService.saveAccountDB(Account.builder()
             .accountManager(accountManager)
@@ -107,17 +83,11 @@ public class AccountServiceImpl implements AccountService {
             .type(accountType)
             .build());
 
-        AccountRefDTO accountRefDTO = AccountRefDTO.builder().accountId(account.getId()).accountNumber(account.getNumber()).build();
-
-        List<CompletableFuture<?>> completableFutureList = new ArrayList<>();
-        completableFutureList.add(CompletableFuture.runAsync(() -> kafkaProducer.sendEvent(customerTopicName, CREATE_ACCOUNT, CreateAccountEvent.builder()
+        AccountRefDTO accountRefDTO = AccountRefDTO.builder().accountNumber(account.getNumber()).build();
+        kafkaProducer.sendEvent(customerTopicName, CREATE_ACCOUNT, CreateAccountEvent.builder()
                 .createAccountRequestDTO(createAccountRequestDTO)
                 .accountRefDTO(accountRefDTO)
-                .build())));
-        completableFutureList.add(CompletableFuture.runAsync(()-> kafkaProducer.sendEvent(documentTopicName, UPDATE_ACCOUNT_REF , accountRefDTO)));
-        completableFutureList.add(CompletableFuture.runAsync(()-> kafkaProducer.sendEvent(interventionTopicName, UPDATE_ACCOUNT_REF , accountRefDTO)));
-
-        asyncExecutor.execute(completableFutureList);
+                .build());
 
         return AccountMapper.INSTANCE.toAccountDTO(account);
     }
@@ -138,7 +108,6 @@ public class AccountServiceImpl implements AccountService {
                 onboardingUtils.isEmpresaAccountType(accountType)) {
             account.setType(accountType);
             account.setLastUpdateTime(LocalDateTime.now());
-            Optional.ofNullable(account.getValidations()).orElse(new ArrayList<>()).add(VALID_TYPE);
 
             accountDTOReturned = AccountMapper.INSTANCE.toAccountDTO(accountRepoService.saveAccountDB(account));
         }else if(CustomerType.PARTICULAR.name().equals(Optional.ofNullable(accountTypeRequestDTO.getCustomerType()).orElse(""))){
@@ -149,7 +118,6 @@ public class AccountServiceImpl implements AccountService {
                     onboardingUtils.isMinorAndHasProgenitorOrTutorAndAccountTypeIsJOV(age, customerType) || onboardingUtils.isParticularAccountType(accountType)){
                 account.setType(accountType);
                 account.setLastUpdateTime(LocalDateTime.now());
-                Optional.ofNullable(account.getValidations()).orElse(new ArrayList<>()).add(VALID_TYPE);
 
                 accountDTOReturned = AccountMapper.INSTANCE.toAccountDTO(accountRepoService.saveAccountDB(account));
             }
@@ -175,22 +143,14 @@ public class AccountServiceImpl implements AccountService {
 
         Optional.ofNullable(accountCardDTO.getCustomerNumber()).orElseThrow(() ->
                 new OnboardingException("A lista de clientes para se adicionar o cartão está vazia")).forEach(customerNumber -> {
-                    CustomerRef customerRefDTO = customerRefRepoService.findCustomerRefByCustomerNumber(customerNumber);
-                    String customerId = customerRefDTO.getId();
+                    cardRepoService.findAndDeleteCardDB(customerNumber, account.getId());
+                    newCard.setCustomerNumber(customerNumber);
 
-                    if(customerId != null) {
-                        cardRepoService.findAndDeleteCardDB(customerId, account.getId());
-                        newCard.setCustomerId(customerNumber);
-                        cardRepoService.saveCardDB(newCard);
+                    cardRepoService.saveCardDB(newCard);
+                    accountRepoService.saveAccountDB(account);
 
-                        Optional.ofNullable(account.getValidations()).orElse(new ArrayList<>()).add(VALID_CARD);
-                        accountRepoService.saveAccountDB(account);
-
-                        kafkaProducer.sendEvent(customerTopicName, OperationType.CARD_ACCOUNT,
-                                CardAndNetbancoEvent.builder().value(true).customerRefDTO(CustomerMapper.INSTANCE.toCustomerRefDTO(customerRefDTO)).build());
-                    }else{
-                        throw new OnboardingException("Não foi possível adicionar o cartão ao cliente com o número " + customerNumber);
-                    }
+                    kafkaProducer.sendEvent(customerTopicName, OperationType.CARD_ACCOUNT,
+                            CardAndNetbancoEvent.builder().value(true).customerNumber(customerNumber).build());
         });
 
         return AccountMapper.INSTANCE.toCardDTO(newCard);
@@ -199,18 +159,15 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public AccountDTO deleteAccountCard(String accountNumber, String cardNumber, AccountDeleteCardDTO accountDeleteCardDTO) {
         onboardingUtils.isValidPhase(accountDeleteCardDTO.getAccountPhase(), OperationType.CARD_ACCOUNT);
-        CustomerRef customerRefDTO = customerRefRepoService.findCustomerRefByCustomerNumber(accountDeleteCardDTO.getCustomerNumber());
-        if (customerRefDTO.getId() != null){
+        String customerNumber = accountDeleteCardDTO.getCustomerNumber();
+        if (customerNumber != null){
             Card card = cardRepoService.findCardDB(cardNumber);
             cardRepoService.deleteCardDB(card.getId());
 
-            Account account = accountRepoService.getAccountById(card.getAccountId());
-            Optional.ofNullable(account.getValidations()).ifPresent(validationTypes ->
-                account.setValidations(validationTypes.stream().filter(validationType -> !VALID_CARD.equals(validationType)).toList()));
-            accountRepoService.saveAccountDB(account);
+            accountRepoService.saveAccountDB(accountRepoService.getAccountById(card.getAccountId()));
 
             kafkaProducer.sendEvent(customerTopicName, OperationType.CARD_ACCOUNT,
-                    CardAndNetbancoEvent.builder().value(false).customerRefDTO(CustomerMapper.INSTANCE.toCustomerRefDTO(customerRefDTO)).build());
+                    CardAndNetbancoEvent.builder().value(false).customerNumber(customerNumber).build());
         }
 
         return AccountMapper.INSTANCE.toAccountDTO(accountRepoService.getAccountByNumber(accountNumber));
@@ -219,29 +176,18 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public AccountDTO putAccountNetbanco(String accountNumber, AccountNetbancoDTO accountNetbancoDTO) {
         onboardingUtils.isValidPhase(accountNetbancoDTO.getAccountPhase(), OperationType.NETBANCO_ACCOUNT);
-        CustomerRef customerRefDTO = customerRefRepoService.findCustomerRefByCustomerNumber(accountNetbancoDTO.getCustomerNumber());
         Account account = accountRepoService.getAccountByNumber(accountNumber);
+        String customerNumber = accountNetbancoDTO.getCustomerNumber();
 
-        if (customerRefDTO.getId() != null){
+        if (customerNumber != null){
             boolean wantsNetbanco = accountNetbancoDTO.isWantsNetbanco();
             account.setOnlineBankingIndicator(wantsNetbanco);
             account.setLastUpdateTime(LocalDateTime.now());
 
-            if(wantsNetbanco){
-                Optional.ofNullable(account.getValidations()).orElse(new ArrayList<>()).add(VALID_NETBANCO);
-            }else{
-                AtomicReference<List<ValidationType>> validations = new AtomicReference<>(new ArrayList<>());
-                Optional.ofNullable(account.getValidations()).ifPresent(validationTypes ->
-                        validations.set(validationTypes.stream().filter(validationType ->
-                                !VALID_NETBANCO.equals(validationType)).collect(Collectors.toList())));
-
-                if(!validations.get().isEmpty()) account.setValidations(validations.get());
-            }
-
             account = accountRepoService.saveAccountDB(account);
 
             kafkaProducer.sendEvent(customerTopicName, OperationType.NETBANCO_ACCOUNT,
-                    CardAndNetbancoEvent.builder().value(wantsNetbanco).customerRefDTO(CustomerMapper.INSTANCE.toCustomerRefDTO(customerRefDTO)).build());
+                    CardAndNetbancoEvent.builder().value(wantsNetbanco).customerNumber(customerNumber).build());
         }
 
         return AccountMapper.INSTANCE.toAccountDTO(account);
@@ -250,10 +196,11 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public void handleErrorEvent(ErrorEvent errorEvent) {
         if(CREATE_ACCOUNT.equals(errorEvent.getOperationType())){
-            accountRepoService.deleteAccountById(errorEvent.getAccountRefDTO().getAccountId());
+            String accountNumber = accountRepoService.getAccountByNumber(errorEvent.getAccountRefDTO().getAccountNumber()).getId();
+            accountRepoService.deleteAccountByAccountNumber(accountNumber);
         }else if (Boolean.TRUE.equals(errorEvent.getIsNewCustomer())
                 && (ADD_INTERVENIENT.equals(errorEvent.getOperationType()) || ADD_REL.equals(errorEvent.getOperationType()))){
-            customerRefRepoService.deleteCustomerById(errorEvent.getCustomerRefDTO().getCustomerId());
+            customerRefRepoService.deleteCustomerByNumber(errorEvent.getCustomerRefDTO().getCustomerNumber());
         }
     }
 
@@ -267,15 +214,15 @@ public class AccountServiceImpl implements AccountService {
 
         switch (nextPhase) {
             case 2 -> {
-                if (!account.getValidations().contains(VALID_TYPE))
+                if (StringUtils.isBlank(account.getType()))
                     onboardingUtils.throwInvalidPhaseForOperationTypeException();
             }
             case 3 -> {
-                if (!new HashSet<>(account.getValidations()).containsAll(List.of(VALID_TYPE, VALID_CUSTOMERS, VALID_CARD, VALID_NETBANCO)))
+                if (isAccountNotValidPhase3(account))
                     onboardingUtils.throwInvalidPhaseForOperationTypeException();
             }
             case 4 -> {
-                if (!new HashSet<>(account.getValidations()).containsAll(List.of(VALID_TYPE, VALID_CUSTOMERS, VALID_CARD, VALID_NETBANCO, VALID_DOCUMENTS)))
+                if (isAccountNotValidPhase3(account) || Boolean.FALSE.equals(account.getHasValidDocs()))
                     onboardingUtils.throwInvalidPhaseForOperationTypeException();
             }
             default -> {}
@@ -287,10 +234,16 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public void validateAccount(ValidationEvent validationEvent) {
-        Account accountToBeUpdated = accountRepoService.getAccountById(validationEvent.getAccountId());
-        if(accountToBeUpdated.getValidations() == null) accountToBeUpdated.setValidations(new ArrayList<>());
-        accountToBeUpdated.getValidations().add(validationEvent.getValidationType());
-        accountRepoService.saveAccountDB(accountToBeUpdated);
+    public void updateDocsValidOrNotValid(DocUploadEvent docUploadEvent) {
+        Account account = accountRepoService.getAccountByNumber(docUploadEvent.getAccountNumber());
+        account.setHasValidDocs(docUploadEvent.isAreDocsValid());
+        accountRepoService.saveAccountDB(account);
+    }
+
+    private boolean isAccountNotValidPhase3(Account account){
+        return StringUtils.isBlank(account.getType())
+                || account.getOnlineBankingIndicator() == null
+                || cardRepoService.getAllCardsByAccountId(account.getId()).isEmpty()
+                || customerRefRepoService.getCustomersByAccountsAccountNumber(account.getNumber()).stream().anyMatch(customer -> Boolean.FALSE.equals(customer.isValid()));
     }
 }

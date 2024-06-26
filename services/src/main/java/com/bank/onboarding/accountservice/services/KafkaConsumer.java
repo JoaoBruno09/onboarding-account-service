@@ -1,11 +1,10 @@
 package com.bank.onboarding.accountservice.services;
 
-import com.bank.onboarding.commonslib.persistence.enums.ValidationType;
+import com.bank.onboarding.commonslib.persistence.models.CustomerRef;
 import com.bank.onboarding.commonslib.persistence.services.CustomerRefRepoService;
-import com.bank.onboarding.commonslib.utils.kafka.models.ErrorEvent;
 import com.bank.onboarding.commonslib.utils.kafka.EventSeDeserializer;
-import com.bank.onboarding.commonslib.utils.kafka.models.ValidationEvent;
-import com.bank.onboarding.commonslib.utils.mappers.CustomerMapper;
+import com.bank.onboarding.commonslib.utils.kafka.models.DocUploadEvent;
+import com.bank.onboarding.commonslib.utils.kafka.models.ErrorEvent;
 import com.bank.onboarding.commonslib.web.dtos.account.AccountRefDTO;
 import com.bank.onboarding.commonslib.web.dtos.customer.CustomerRefDTO;
 import lombok.RequiredArgsConstructor;
@@ -35,12 +34,15 @@ public class KafkaConsumer {
             case "UPDATE_CUSTOMER_REF" -> {
                 CustomerRefDTO customerRefDTO = (CustomerRefDTO) eventSeDeserializer.deserialize(eventValue, CustomerRefDTO.class);
                 log.info("Event received to update Customer Ref with number {}", customerRefDTO.getCustomerNumber());
-                customerRefRepoService.saveCustomerRefDB(CustomerMapper.INSTANCE.toCustomerRef(customerRefDTO));
+                CustomerRef customerRef = customerRefRepoService.findCustomerRefByCustomerNumber(customerRefDTO.getCustomerNumber());
+                customerRef.setValid(customerRefDTO.getIsValid());
+                customerRef.setAccounts(customerRefDTO.getAccounts());
+                customerRefRepoService.saveCustomerRefDB(customerRef);
             }
-            case "DOCS_UPLOAD", "UPDATE_CUSTOMER" -> {
-                ValidationEvent validationEvent = (ValidationEvent) eventSeDeserializer.deserialize(eventValue, ValidationEvent.class);
-                log.info("Event received to update validations for account");
-                accountService.validateAccount(validationEvent);
+            case "DOCS_UPLOAD" -> {
+                DocUploadEvent docUploadEvent = (DocUploadEvent) eventSeDeserializer.deserialize(eventValue, DocUploadEvent.class);
+                log.info("Event received to validate account docs with number {}", docUploadEvent.getAccountNumber());
+                accountService.updateDocsValidOrNotValid(docUploadEvent);
             }
             default -> {
                 ErrorEvent errorEvent = (ErrorEvent) eventSeDeserializer.deserialize(eventValue, ErrorEvent.class);
