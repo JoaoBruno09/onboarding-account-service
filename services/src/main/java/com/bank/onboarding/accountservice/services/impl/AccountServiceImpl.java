@@ -32,12 +32,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.ACCOUNT_PHASES;
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.ACCOUNT_TYPES;
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.CARD_TYPES;
 import static com.bank.onboarding.commonslib.persistence.constants.OnboardingConstants.faker;
+import static com.bank.onboarding.commonslib.persistence.enums.AccountPhase.TERMINADA;
 import static com.bank.onboarding.commonslib.persistence.enums.OperationType.ADD_INTERVENIENT;
 import static com.bank.onboarding.commonslib.persistence.enums.OperationType.ADD_REL;
 import static com.bank.onboarding.commonslib.persistence.enums.OperationType.CREATE_ACCOUNT;
@@ -229,6 +231,9 @@ public class AccountServiceImpl implements AccountService {
         }
 
         account.setPhase(nextPhase);
+
+        if(Objects.equals(TERMINADA.getValue(), account.getPhase()))
+            account.setActive(true);
 
         return AccountMapper.INSTANCE.toAccountDTO(account);
     }
