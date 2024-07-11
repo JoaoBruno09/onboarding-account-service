@@ -17,6 +17,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -39,20 +40,20 @@ public class AccountController {
 
     private static final String ACCOUNT_NUMBER_PATH_PARAM = "/{accountNumber}";
 
-    @PostMapping
+    @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> createAccount(@RequestBody @Valid CreateAccountRequestDTO createAccountRequestDTO,
                                            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
                                            @RequestHeader("X-Onboarding-Client-Id") String clientId) {
         try {
             final AccountDTO accountDTO = accountService.createAccount(createAccountRequestDTO);
-            return new ResponseEntity<>(accountDTO, HttpStatus.OK);
+            return new ResponseEntity<>(accountDTO, HttpStatus.CREATED);
         }
         catch(OnboardingException e ) {
             return onboardingUtils.buildResponseEntity(Request.HttpMethod.POST.name(), e.getMessage());
         }
     }
 
-    @PatchMapping(ACCOUNT_NUMBER_PATH_PARAM)
+    @PatchMapping(value = ACCOUNT_NUMBER_PATH_PARAM, produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> patchAccountType(@PathVariable("accountNumber") String accountNumber,
                                                        @RequestBody @Valid AccountTypeRequestDTO accountTypeRequestDTO,
                                                        @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
@@ -67,7 +68,7 @@ public class AccountController {
         }
     }
 
-    @PutMapping(ACCOUNT_NUMBER_PATH_PARAM + "/card")
+    @PutMapping(value = ACCOUNT_NUMBER_PATH_PARAM + "/card", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> putAccountCard(@PathVariable("accountNumber") String accountNumber,
                                                   @RequestBody @Valid AccountCardDTO accountCardDTO,
                                                   @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
@@ -81,7 +82,7 @@ public class AccountController {
         }
     }
 
-    @DeleteMapping(ACCOUNT_NUMBER_PATH_PARAM + "/card/{cardNumber}")
+    @DeleteMapping(value = ACCOUNT_NUMBER_PATH_PARAM + "/card/{cardNumber}", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> deleteAccountCard(@PathVariable("accountNumber") String accountNumber,
                                                         @PathVariable("cardNumber") String cardNumber,
                                                         @RequestBody @Valid AccountDeleteCardDTO accountDeleteCardDTO,
@@ -96,7 +97,7 @@ public class AccountController {
         }
     }
 
-    @PutMapping(ACCOUNT_NUMBER_PATH_PARAM + "/netbanco")
+    @PutMapping(value = ACCOUNT_NUMBER_PATH_PARAM + "/netbanco", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> putAccountNetbanco(@PathVariable("accountNumber") String accountNumber,
                                                          @RequestBody @Valid AccountNetbancoDTO accountNetbancoDTO,
                                                          @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
@@ -110,7 +111,7 @@ public class AccountController {
         }
     }
 
-    @PutMapping(ACCOUNT_NUMBER_PATH_PARAM + "/moveNextPhase")
+    @PutMapping(value = ACCOUNT_NUMBER_PATH_PARAM + "/moveNextPhase", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> putMoveNextPhase(@PathVariable("accountNumber") String accountNumber,
                                                 @RequestBody @Valid MoveNextPhaseDTO moveNextPhaseDTO,
                                                 @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
