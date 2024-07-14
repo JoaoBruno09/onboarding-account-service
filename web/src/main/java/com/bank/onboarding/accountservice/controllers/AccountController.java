@@ -31,7 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestController
-@RequestMapping("account")
+@RequestMapping("accounts")
 @RequiredArgsConstructor
 public class AccountController {
 
@@ -90,7 +90,7 @@ public class AccountController {
                                                         @RequestHeader("X-Onboarding-Client-Id") String clientId){
         try {
             final AccountDTO accountDTO = accountService.deleteAccountCard(accountNumber, cardNumber, accountDeleteCardDTO);
-            return new ResponseEntity<>(accountDTO, HttpStatus.OK);
+            return new ResponseEntity<>(accountDTO, HttpStatus.NO_CONTENT);
         }
         catch( Exception e ) {
             return onboardingUtils.buildResponseEntity(Request.HttpMethod.DELETE.name(), e.getMessage());

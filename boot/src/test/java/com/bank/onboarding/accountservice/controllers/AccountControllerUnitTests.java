@@ -112,7 +112,7 @@ class AccountControllerUnitTests {
         CreateAccountRequestDTO createAccountRequestDTO = buildCreateAccountRequestDTO();
 
         when(accountService.createAccount(createAccountRequestDTO)).thenReturn(accountDTO);
-        mockMvc.perform(post("/account")
+        mockMvc.perform(post("/accounts")
                         .header("Authorization", "Bearer " + token)
                         .header("X-Onboarding-Client-Id", clientId)
                         .content(objectMapper.writeValueAsString(createAccountRequestDTO))
@@ -134,7 +134,7 @@ class AccountControllerUnitTests {
         AccountTypeRequestDTO accountTypeRequestDTO = buildAccountTypeRequestDTO();
 
         when(accountService.patchAccountType(accountNumber, accountTypeRequestDTO)).thenReturn(accountDTO);
-        mockMvc.perform(patch("/account/"+ accountNumber)
+        mockMvc.perform(patch("/accounts/"+ accountNumber)
                         .header("Authorization", "Bearer " + token)
                         .header("X-Onboarding-Client-Id", clientId)
                         .content(objectMapper.writeValueAsString(accountTypeRequestDTO))
@@ -157,7 +157,7 @@ class AccountControllerUnitTests {
         CardDTO expectedCardDTO = buildCardDTO();
 
         when(accountService.putAccountCard(accountNumber, accountCardDTO)).thenReturn(expectedCardDTO);
-        mockMvc.perform(put("/account/"+ accountNumber + "/card")
+        mockMvc.perform(put("/accounts/"+ accountNumber + "/card")
                         .header("Authorization", "Bearer " + token)
                         .header("X-Onboarding-Client-Id", clientId)
                         .content(objectMapper.writeValueAsString(accountCardDTO))
@@ -177,13 +177,13 @@ class AccountControllerUnitTests {
         AccountDeleteCardDTO accountDeleteCardDTO = deleteAccountCardDTO();
 
         when(accountService.deleteAccountCard(accountNumber, cardNumber, accountDeleteCardDTO)).thenReturn(accountDTO);
-        mockMvc.perform(delete("/account/"+ accountNumber +"/card/" + cardNumber)
+        mockMvc.perform(delete("/accounts/"+ accountNumber +"/card/" + cardNumber)
                         .header("Authorization", "Bearer " + token)
                         .header("X-Onboarding-Client-Id", clientId)
                         .content(objectMapper.writeValueAsString(accountDeleteCardDTO))
                         .contentType(MediaType.APPLICATION_JSON_VALUE))
                 .andDo(print())
-                .andExpect(status().isOk())
+                .andExpect(status().isNoContent())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
                 .andExpect(jsonPath("$.accountManager").value(accountDTO.getAccountManager()))
                 .andExpect(jsonPath("$.currencyCode").value(accountDTO.getCurrencyCode()))
@@ -199,7 +199,7 @@ class AccountControllerUnitTests {
         AccountNetbancoDTO accountNetbancoDTO = buildAccountNetbancoDTO();
 
         when(accountService.putAccountNetbanco(accountNumber, accountNetbancoDTO)).thenReturn(accountDTO);
-        mockMvc.perform(put("/account/"+ accountNumber +"/netbanco")
+        mockMvc.perform(put("/accounts/"+ accountNumber +"/netbanco")
                         .header("Authorization", "Bearer " + token)
                         .header("X-Onboarding-Client-Id", clientId)
                         .content(objectMapper.writeValueAsString(accountNetbancoDTO))
@@ -221,7 +221,7 @@ class AccountControllerUnitTests {
         MoveNextPhaseDTO moveNextPhaseDTO = buildMoveNextPhaseDTO();
 
         when(accountService.moveToNextPhase(accountNumber, moveNextPhaseDTO)).thenReturn(accountDTO);
-        mockMvc.perform(put("/account/"+ accountNumber +"/moveNextPhase")
+        mockMvc.perform(put("/accounts/"+ accountNumber +"/moveNextPhase")
                         .header("Authorization", "Bearer " + token)
                         .header("X-Onboarding-Client-Id", clientId)
                         .content(objectMapper.writeValueAsString(moveNextPhaseDTO))
