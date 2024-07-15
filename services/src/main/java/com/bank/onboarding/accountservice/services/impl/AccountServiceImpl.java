@@ -137,7 +137,7 @@ public class AccountServiceImpl implements AccountService {
         Account account = accountRepoService.getAccountByNumber(accountNumber);
 
         Card newCard = Card.builder()
-                .annualFee(Double.valueOf(faker.commerce().price(5.00,20.00)))
+                .annualFee(Double.valueOf(faker.commerce().price(5.00,20.00).replace(",", ".")))
                 .cvc((int)faker.number().randomNumber(3, false))
                 .number(faker.numerify("####-####-####-####"))
                 .type(cardRepoService.getCardTypeValue(accountCardDTO.getCardType()))
@@ -235,7 +235,7 @@ public class AccountServiceImpl implements AccountService {
         if(Objects.equals(TERMINADA.getValue(), account.getPhase()))
             account.setActive(true);
 
-        return AccountMapper.INSTANCE.toAccountDTO(account);
+        return AccountMapper.INSTANCE.toAccountDTO(accountRepoService.saveAccountDB(account));
     }
 
     @Override

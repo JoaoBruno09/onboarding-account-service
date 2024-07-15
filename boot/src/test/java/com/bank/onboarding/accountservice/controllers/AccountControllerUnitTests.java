@@ -51,7 +51,6 @@ import static com.bank.onboarding.commonslib.utils.TestOnboardingUtils.buildMove
 import static com.bank.onboarding.commonslib.utils.TestOnboardingUtils.deleteAccountCardDTO;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
@@ -134,7 +133,7 @@ class AccountControllerUnitTests {
         AccountTypeRequestDTO accountTypeRequestDTO = buildAccountTypeRequestDTO();
 
         when(accountService.patchAccountType(accountNumber, accountTypeRequestDTO)).thenReturn(accountDTO);
-        mockMvc.perform(patch("/accounts/"+ accountNumber)
+        mockMvc.perform(put("/accounts/"+ accountNumber)
                         .header("Authorization", "Bearer " + token)
                         .header("X-Onboarding-Client-Id", clientId)
                         .content(objectMapper.writeValueAsString(accountTypeRequestDTO))
@@ -163,7 +162,7 @@ class AccountControllerUnitTests {
                         .content(objectMapper.writeValueAsString(accountCardDTO))
                         .contentType(MediaType.APPLICATION_JSON_VALUE))
                 .andDo(print())
-                .andExpect(status().isCreated())
+                .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
                 .andExpect(jsonPath("$.annualFee").value(10))
                 .andExpect(jsonPath("$.cvc").value(111))
@@ -183,7 +182,7 @@ class AccountControllerUnitTests {
                         .content(objectMapper.writeValueAsString(accountDeleteCardDTO))
                         .contentType(MediaType.APPLICATION_JSON_VALUE))
                 .andDo(print())
-                .andExpect(status().isNoContent())
+                .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
                 .andExpect(jsonPath("$.accountManager").value(accountDTO.getAccountManager()))
                 .andExpect(jsonPath("$.currencyCode").value(accountDTO.getCurrencyCode()))

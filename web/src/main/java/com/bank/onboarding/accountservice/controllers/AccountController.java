@@ -53,7 +53,7 @@ public class AccountController {
         }
     }
 
-    @PatchMapping(value = ACCOUNT_NUMBER_PATH_PARAM, produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PutMapping(value = ACCOUNT_NUMBER_PATH_PARAM, produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> patchAccountType(@PathVariable("accountNumber") String accountNumber,
                                                        @RequestBody @Valid AccountTypeRequestDTO accountTypeRequestDTO,
                                                        @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
@@ -75,7 +75,7 @@ public class AccountController {
                                                   @RequestHeader("X-Onboarding-Client-Id") String clientId){
         try {
             final CardDTO cardDTO = accountService.putAccountCard(accountNumber, accountCardDTO);
-            return new ResponseEntity<>(cardDTO, HttpStatus.CREATED);
+            return new ResponseEntity<>(cardDTO, HttpStatus.OK);
         }
         catch( Exception e ) {
             return onboardingUtils.buildResponseEntity(Request.HttpMethod.PUT.name(), e.getMessage());
@@ -90,7 +90,7 @@ public class AccountController {
                                                         @RequestHeader("X-Onboarding-Client-Id") String clientId){
         try {
             final AccountDTO accountDTO = accountService.deleteAccountCard(accountNumber, cardNumber, accountDeleteCardDTO);
-            return new ResponseEntity<>(accountDTO, HttpStatus.NO_CONTENT);
+            return new ResponseEntity<>(accountDTO, HttpStatus.OK);
         }
         catch( Exception e ) {
             return onboardingUtils.buildResponseEntity(Request.HttpMethod.DELETE.name(), e.getMessage());
