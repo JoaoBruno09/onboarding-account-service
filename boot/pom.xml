@@ -19,7 +19,7 @@
     </properties>
 
     <build>
-        <finalName>account-service-${project.parent.version}</finalName>
+        <finalName>${project.parent.artifactId}-${project.parent.version}</finalName>
     </build>
 
     <dependencies>
