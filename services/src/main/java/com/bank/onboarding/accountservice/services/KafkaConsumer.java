@@ -33,8 +33,10 @@ public class KafkaConsumer {
         switch (event.key().toString()) {
             case "UPDATE_CUSTOMER_REF" -> {
                 CustomerRefDTO customerRefDTO = (CustomerRefDTO) eventSeDeserializer.deserialize(eventValue, CustomerRefDTO.class);
-                log.info("Event received to update Customer Ref with number {}", customerRefDTO.getCustomerNumber());
-                CustomerRef customerRef = customerRefRepoService.findCustomerRefByCustomerNumber(customerRefDTO.getCustomerNumber());
+                String customerRefDTONumber = customerRefDTO.getCustomerNumber();
+                log.info("Event received to update Customer Ref with number {}", customerRefDTONumber);
+                CustomerRef customerRef = customerRefRepoService.findCustomerRefByCustomerNumber(customerRefDTONumber);
+                if (customerRef.getCustomerNumber() == null) customerRef.setCustomerNumber(customerRefDTONumber);
                 customerRef.setValid(customerRefDTO.getIsValid());
                 customerRef.setAccounts(customerRefDTO.getAccounts());
                 customerRefRepoService.saveCustomerRefDB(customerRef);
